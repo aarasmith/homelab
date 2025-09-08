@@ -1,0 +1,109 @@
+---
+- name: Install and configure PostgreSQL 17 on lxc-template
+  hosts: lxc-template
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Import PostgreSQL GPG key
+      ansible.builtin.shell: |
+        curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | tee /usr/share/keyrings/postgresql.asc
+      args:
+        creates: /usr/share/keyrings/postgresql.asc
+
+    - name: Add PostgreSQL APT repository
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/postgresql.asc] https://apt.postgresql.org/pub/repos/apt/ {{ ansible_distribution_release | lower }}-pgdg main"
+        state: present
+        filename: "pgdg"
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install PostgreSQL 17
+      apt:
+        name: postgresql-17
+        state: present
+
+    - name: Ensure PostgreSQL service is started and enabled
+      systemd:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    # - name: Set password for postgres user
+    #   become_user: postgres
+    #   postgresql_user:
+    #     name: postgres
+    #     password: "{{ postgres_password }}"
+    #     encrypted: yes
+
+    - name: Allow remote connections (optional)
+      lineinfile:
+        path: /etc/postgresql/17/main/pg_hba.conf
+        regexp: '^host\s+all\s+all\s+0.0.0.0/0\s+md5'
+        line: 'host    all             all             0.0.0.0/0               md5'
+        state: present
+
+    - name: Listen on all IP addresses (optional)
+      lineinfile:
+        path: /etc/postgresql/17/main/postgresql.conf
+        regexp: '^#listen_addresses = .*$'
+        line: "listen_addresses = '*'"
+        state: present
+
+    - name: Restart PostgreSQL to apply changes
+      systemd:
+        name: postgresql
+        state: restarted
+
+    - name: Remove /var/spool/postfix/dev/random
+      file:
+        path: /var/spool/postfix/dev/random
+        state: absent
+
+    - name: Remove /var/spool/postfix/dev/urandom
+      file:
+        path: /var/spool/postfix/dev/urandom
+        state: absent
+
+- name: Backup and remove CT 999 on Proxmox host
+  hosts: pve-host
+  become: yes
+  tasks:
+    - name: Stop CT 999
+      command: pct stop 999
+      ignore_errors: yes   # skip error if it's already stopped
+
+    - name: Remove eth0 from CT 999 config
+      command: pct set 999 -delete net0
+
+
+    - name: Run vzdump for CT 999
+      command: >
+        vzdump 999
+        --mode stop
+        --compress gzip
+        --dumpdir /mnt/pve/truenas/template/cache
+
+    - name: Rename vzdump file to meaningful name
+      shell: |
+        FILE=$(ls -t /mnt/pve/truenas/template/cache/vzdump-lxc-999-*.gz | head -n1)
+        mv "$FILE" "/mnt/pve/truenas/template/cache/postgres17-debian12.tar.gz"
+      args:
+        executable: /bin/bash
+
+    # - name: Delete CT 999 after backup
+    #   command: pct destroy 999 --force
