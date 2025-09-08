@@ -3,17 +3,6 @@
   hosts: lxc-template
   become: yes
   tasks:
-    - name: Wait for SSH to be ready
-      wait_for:
-        host: "{{ ansible_host }}"
-        port: 22
-        delay: 5
-        timeout: 300
-        state: started
-
-    - name: Gather facts
-      ansible.builtin.setup:
-      
     - name: Update apt cache
       apt:
         update_cache: yes
