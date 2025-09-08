@@ -90,7 +90,6 @@
     - name: Remove eth0 from CT 999 config
       command: pct set 999 -delete net0
 
-
     - name: Run vzdump for CT 999
       command: >
         vzdump 999
@@ -105,5 +104,5 @@
       args:
         executable: /bin/bash
 
-    # - name: Delete CT 999 after backup
-    #   command: pct destroy 999 --force
+    - name: start CT 999
+      command: pct start 999
