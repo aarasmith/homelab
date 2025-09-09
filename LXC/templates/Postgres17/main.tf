@@ -2,7 +2,7 @@ module "postgres17_template" {
   source     = "../../../terraform/modules/lxc-template"
   node_name  = "mother"
   hostname   = "postgres17"
-  ostemplate = "local:vztmpl/debian-12-standard_12.0-1_amd64.tar.zst"
+  ostemplate = "truenas:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst"
 
   proxmox_api_url = var.proxmox_api_url
   proxmox_user    = var.proxmox_user
