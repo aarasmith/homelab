@@ -41,34 +41,13 @@ jobs:
 
       - name: Terraform Apply
         id: tfout
-        run: |
-          terraform apply -input=false -auto-approve tfplan
-          echo "vmid=$(terraform output -raw vmid)" 
-          echo "vmid=$(terraform output -raw ip)" 
-          echo "vmid=$(terraform output -raw vmid)" >> $GITHUB_OUTPUT
-          echo "ip=$(terraform output -raw ip)" >> $GITHUB_OUTPUT  
+        run: terraform apply -input=false -auto-approve tfplan
 
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-
-      - name: Generate dynamic hosts.ini
-        run: |
-          cat > hosts.ini <<EOF
-          [lxc-template]
-          ${{ steps.tfout.outputs.ip }} ansible_user=root
-
-          [pve-host]
-          ${{ secrets.PVE_HOST }} ansible_user=${{ secrets.PVE_USER }}
-
-          [pve-host:vars]
-          vmid=${{ steps.tfout.outputs.vmid }}
-          EOF
-
-      - name: debug hosts.ini
-        run: cat hosts.ini
 
       - name: sleep to allow lxc to come online
         run: |

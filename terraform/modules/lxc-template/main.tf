@@ -1,7 +1,7 @@
 resource "proxmox_lxc" "template" {
   hostname     = var.hostname
   ostemplate   = var.ostemplate
-  vmid         = null               # let Proxmox auto-assign
+  vmid         = var.vmid               # let Proxmox auto-assign
   target_node  = var.node_name
   password     = var.lxc_password
   start        = true
@@ -18,7 +18,7 @@ resource "proxmox_lxc" "template" {
   network {
     name     = "eth0"
     bridge   = "vmbr0"
-    ip       = "dhcp"
+    ip       = var.ip
     gw       = "10.1.1.1"
   }
 

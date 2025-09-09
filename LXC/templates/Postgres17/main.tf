@@ -3,6 +3,8 @@ module "postgres17_template" {
   node_name  = "mother"
   hostname   = "postgres17"
   ostemplate = "truenas:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst"
+  vmid       = "999"
+  ip         = "10.1.1.250"
 
   proxmox_api_url = var.proxmox_api_url
   proxmox_user    = var.proxmox_user
