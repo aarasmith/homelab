@@ -51,8 +51,8 @@ jobs:
       - name: Capture Terraform Outputs
         id: tfout
         run: |
-          echo "vmid=$(terraform output -raw vmid)" >> $GITEA_OUTPUT
-          echo "ip=$(terraform output -raw ip)" >> $GITEA_OUTPUT  
+          echo "vmid=$(terraform output -raw vmid)" >> $GITHUB_OUTPUT
+          echo "ip=$(terraform output -raw ip)" >> $GITHUB_OUTPUT  
 
       - name: Generate dynamic hosts.ini
         run: |
