@@ -51,6 +51,8 @@ jobs:
       - name: Capture Terraform Outputs
         id: tfout
         run: |
+          echo "vmid=$(terraform output -raw vmid)" 
+          echo "ip=$(terraform output -raw ip)" 
           echo "vmid=$(terraform output -raw vmid)" >> $GITHUB_OUTPUT
           echo "ip=$(terraform output -raw ip)" >> $GITHUB_OUTPUT  
 
@@ -58,13 +60,13 @@ jobs:
         run: |
           cat > hosts.ini <<EOF
           [lxc-template]
-          ${{ steps.tfout.outputs.ip }} ansible_user=root
+          $(terraform output -raw ip) ansible_user=root
 
           [pve-host]
           ${{ secrets.PVE_HOST }} ansible_user=${{ secrets.PVE_USER }}
 
           [pve-host:vars]
-          vmid=${{ steps.tfout.outputs.vmid }}
+          vmid=$(terraform output -raw vmid)
           EOF
 
       - name: debug hosts.ini
