@@ -43,13 +43,6 @@
         state: started
         enabled: yes
 
-    # - name: Set password for postgres user
-    #   become_user: postgres
-    #   postgresql_user:
-    #     name: postgres
-    #     password: "{{ postgres_password }}"
-    #     encrypted: yes
-
     - name: Allow remote connections (optional)
       lineinfile:
         path: /etc/postgresql/17/main/pg_hba.conf
@@ -79,30 +72,32 @@
         path: /var/spool/postfix/dev/urandom
         state: absent
 
-- name: Backup and remove CT 999 on Proxmox host
+- name: Backup and remove CT on Proxmox host
   hosts: pve-host
   become: yes
+  vars:
+    vmid: "{{ hostvars['pve-host'].vmid }}"
   tasks:
-    - name: Stop CT 999
-      command: pct stop 999
+    - name: Stop CT
+      command: pct stop {{ vmid }}
       ignore_errors: yes   # skip error if it's already stopped
 
-    - name: Remove eth0 from CT 999 config
-      command: pct set 999 -delete net0
+    - name: Remove eth0 from CT config
+      command: pct set {{ vmid }} -delete net0
 
-    - name: Run vzdump for CT 999
+    - name: Run vzdump for CT
       command: >
-        vzdump 999
+        vzdump {{ vmid }}
         --mode stop
         --compress gzip
         --dumpdir /mnt/pve/truenas/template/cache
 
     - name: Rename vzdump file to meaningful name
       shell: |
-        FILE=$(ls -t /mnt/pve/truenas/template/cache/vzdump-lxc-999-*.gz | head -n1)
+        FILE=$(ls -t /mnt/pve/truenas/template/cache/vzdump-lxc-{{ vmid }}-*.gz | head -n1)
         mv "$FILE" "/mnt/pve/truenas/template/cache/postgres17-debian12.tar.gz"
       args:
         executable: /bin/bash
 
-    - name: start CT 999
-      command: pct start 999
+    - name: Start CT
+      command: pct start {{ vmid }}
