@@ -10,3 +10,31 @@ module "postgres17_template" {
   lxc_password    = var.lxc_password
   ssh_public_key  = var.ssh_public_key
 }
+
+
+variable "lxc_password" {
+  description = "Root password for the LXC"
+  type        = string
+  sensitive   = true
+}
+
+variable "ssh_public_key" {
+  description = "SSH public key to inject into LXC"
+  type        = string
+}
+
+variable "proxmox_api_url" {
+  description = "Proxmox API endpoint"
+  type        = string
+}
+
+variable "proxmox_user" {
+  description = "Proxmox user with permissions"
+  type        = string
+}
+
+variable "proxmox_password" {
+  description = "Proxmox user password"
+  type        = string
+  sensitive   = true
+}
