@@ -1,6 +1,6 @@
 ---
 - name: Install and configure PostgreSQL 17 on lxc-template
-  hosts: lxc-template
+  hosts: lxc_template
   become: yes
   tasks:
     - name: Update apt cache
@@ -73,10 +73,10 @@
         state: absent
 
 - name: Backup and remove CT on Proxmox host
-  hosts: pve-host
+  hosts: pve_host
   become: yes
   vars:
-    vmid: "{{ hostvars['pve-host'].vmid }}"
+    vmid: "{{ hostvars['pve_host'].vmid }}"
   tasks:
     - name: Stop CT
       command: pct stop {{ vmid }}
