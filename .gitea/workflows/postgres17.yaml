@@ -58,13 +58,13 @@ jobs:
         run: |
           cat > hosts.ini <<EOF
           [lxc-template]
-          ${{ env.ip }} ansible_user=root
+          $ip ansible_user=root
 
           [pve-host]
           ${{ secrets.PVE_HOST }} ansible_user=${{ secrets.PVE_USER }}
 
           [pve-host:vars]
-          vmid=${{ env.vmid }}
+          vmid=$vmid
           EOF
 
       - name: debug hosts.ini
