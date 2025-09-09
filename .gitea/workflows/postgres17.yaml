@@ -51,20 +51,20 @@ jobs:
       - name: Capture Terraform Outputs
         id: tfout
         run: |
-          echo "vmid=$(terraform output -raw vmid)" >> $GITEA_ENV
-          echo "ip=$(terraform output -raw ip)" >> $GITEA_ENV   
+          echo "vmid=$(terraform output -raw vmid)" >> $GITEA_OUTPUT
+          echo "ip=$(terraform output -raw ip)" >> $GITEA_OUTPUT  
 
       - name: Generate dynamic hosts.ini
         run: |
           cat > hosts.ini <<EOF
           [lxc-template]
-          $ip ansible_user=root
+          ${{ steps.tfout.outputs.ip }} ansible_user=root
 
           [pve-host]
           ${{ secrets.PVE_HOST }} ansible_user=${{ secrets.PVE_USER }}
 
           [pve-host:vars]
-          vmid=$vmid
+          vmid=${{ steps.tfout.outputs.vmid }}
           EOF
 
       - name: debug hosts.ini
