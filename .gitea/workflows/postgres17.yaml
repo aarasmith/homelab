@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "LXC/templates/Postgres17/**"
+      - "terraform/modules/lxc-template/**"
   workflow_dispatch:
 
 jobs:
@@ -47,11 +48,32 @@ jobs:
           echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
       
-      - name: sleep
+      - name: Capture Terraform Outputs
+        id: tfout
+        run: |
+          echo "vmid=$(terraform output -raw vmid)" >> $GITEA_ENV
+          echo "ip=$(terraform output -raw ip)" >> $GITEA_ENV   
+
+      - name: Generate dynamic hosts.ini
+        run: |
+          cat > hosts.ini <<EOF
+          [lxc-template]
+          ${{ env.ip }} ansible_user=root
+
+          [pve-host]
+          ${{ secrets.PVE_HOST }} ansible_user=${{ secrets.PVE_USER }}
+
+          [pve-host:vars]
+          vmid=${{ env.vmid }}
+          EOF
+
+      - name: sleep to allow lxc to come online
         run: |
             sleep 30
 
       - name: Run Ansible Playbook
+        env:
+          ANSIBLE_CONFIG: ../../ansible/ansible.cfg
         run: ansible-playbook -i hosts.ini Postgres17.yaml
 
       - name: Terraform Destroy
