@@ -96,6 +96,3 @@
         mv "$FILE" "/mnt/pve/truenas/template/cache/postgres17-debian12.tar.gz"
       args:
         executable: /bin/bash
-
-    - name: Start CT
-      command: pct start {{ vmid }}
