@@ -6,19 +6,19 @@ resource "proxmox_lxc" "template" {
   password     = var.lxc_password
   ssh_public_keys = var.ssh_public_key
 
-  memory = 1024
+  memory = 2048
   cores  = 1
 
   rootfs {
-    storage = "local-lvm"
-    size    = "8G"
+    storage = "leroy-storage"
+    size    = "16G"
   }
 
   network {
     name     = "eth0"
     bridge   = "vmbr0"
     ip       = "dhcp"
-    firewall = false
+    gw       = "10.1.1.1"
   }
 
   unprivileged = true
