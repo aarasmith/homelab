@@ -56,7 +56,7 @@ jobs:
       - name: Run Ansible Playbook
         env:
           ANSIBLE_CONFIG: ../../ansible/ansible.cfg
-        run: ansible-playbook -i hosts.ini Postgres17.yaml
+        run: ansible-playbook -vvvv -i hosts.ini Postgres17.yaml
 
       - name: Terraform Destroy
         if: always()
