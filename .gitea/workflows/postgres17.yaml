@@ -67,6 +67,9 @@ jobs:
           vmid=${{ env.vmid }}
           EOF
 
+      - name: debug hosts.ini
+        run: cat hosts.ini
+
       - name: sleep to allow lxc to come online
         run: |
             sleep 30

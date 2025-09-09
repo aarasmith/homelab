@@ -4,6 +4,7 @@ resource "proxmox_lxc" "template" {
   vmid         = null               # let Proxmox auto-assign
   target_node  = var.node_name
   password     = var.lxc_password
+  start        = true
   ssh_public_keys = var.ssh_public_key
 
   memory = 2048
@@ -25,5 +26,6 @@ resource "proxmox_lxc" "template" {
 
   features {
     nesting = true
+    keyctl  = true
   }
 }
