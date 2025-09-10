@@ -72,27 +72,4 @@
         path: /var/spool/postfix/dev/urandom
         state: absent
 
-- name: Backup and remove CT on Proxmox host
-  hosts: pve_host
-  become: yes
-  tasks:
-    - name: Stop CT
-      command: pct stop {{ vmid }}
-      ignore_errors: yes   # skip error if it's already stopped
-
-    - name: Remove eth0 from CT config
-      command: pct set {{ vmid }} -delete net0
-
-    - name: Run vzdump for CT
-      command: >
-        vzdump {{ vmid }}
-        --mode stop
-        --compress gzip
-        --dumpdir {{ templates_dir }}
-
-    - name: Rename vzdump file to meaningful name
-      shell: |
-        FILE=$(ls -t {{ templates_dir }}/vzdump-lxc-{{ vmid }}-*.gz | head -n1)
-        mv "$FILE" "{{ templates_dir }}/{{ template_name }}.tar.gz"
-      args:
-        executable: /bin/bash
+- import_playbook: ../../../ansible/dump-lxc-to-template.yaml
