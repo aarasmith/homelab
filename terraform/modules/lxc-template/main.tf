@@ -25,7 +25,7 @@ resource "proxmox_lxc" "template" {
   unprivileged = true
 
   features {
-    nesting = true
-    keyctl  = true
+    nesting = false
+    keyctl  = false
   }
 }
