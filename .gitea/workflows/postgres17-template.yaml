@@ -30,7 +30,7 @@ jobs:
           cat > credentials.auto.tfvars <<EOF
           pm_api_url            = "${{ secrets.PVE_API_URL }}"
           pm_user               = "${{ secrets.PVE_USER }}"
-          pm_api_token_secret   = "${{ secrets.PVE_PASSWORD }}"
+          pm_password   = "${{ secrets.PVE_PASSWORD }}"
           lxc_password          = "${{ secrets.LXC_PASSWORD }}"
           ssh_public_key        = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
           EOF
