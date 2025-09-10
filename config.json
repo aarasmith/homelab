@@ -1,0 +1,7 @@
+{
+    "PVE_NODE_NAME": "mother",
+    "PVE_NODE_IP": "10.1.1.54",
+    "TEMPLATES_DIR": "/mnt/pve/truenas/template/cache",
+    "POSTGRES17_VMID": 999,
+    "POSTGRES17_IP": "10.1.1.250"
+}
