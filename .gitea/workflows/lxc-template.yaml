@@ -1,0 +1,63 @@
+name: Deploy LXC template
+
+on:
+  workflow_call:
+    inputs:
+      working-dir:
+        description: "Directory for Terraform + Ansible"
+        required: true
+        type: string
+      playbook:
+        description: "Ansible playbook file"
+        required: true
+        type: string
+    secrets: inherit
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: git.arasmith.org/admin/gitea-runner-tools:latest
+
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-dir }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create credentials.auto.tfvars
+        run: |
+          cat > credentials.auto.tfvars <<EOF
+          pm_api_url      = "${{ secrets.PVE_API_URL }}"
+          pm_user         = "${{ secrets.PVE_USER }}"
+          pm_password     = "${{ secrets.PVE_PASSWORD }}"
+          lxc_password    = "${{ secrets.LXC_PASSWORD }}"
+          ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
+          EOF
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan -input=false
+
+      - name: Terraform Apply
+        id: tfout
+        run: terraform apply -input=false -auto-approve tfplan
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Run Ansible Playbook
+        env:
+          ANSIBLE_CONFIG: ../../../ansible/ansible.cfg
+        run: ansible-playbook -i hosts.ini ${{ inputs.playbook }}
+
+      - name: Terraform Destroy
+        if: always()
+        run: terraform destroy -auto-approve -input=false
