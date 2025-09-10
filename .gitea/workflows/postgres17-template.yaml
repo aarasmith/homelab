@@ -11,7 +11,7 @@ on:
 
 jobs:
   deploy:
-    uses: ./.gitea/workflows/lxc-template.yml
+    uses: ./.gitea/workflows/lxc-template.yaml
     with:
       working-dir: LXC/templates/Postgres17
       playbook: Postgres17.yaml
