@@ -39,7 +39,10 @@ jobs:
         run: terraform init -input=false
 
       - name: Terraform Plan
-        run: terraform plan -out=tfplan -input=false
+        run: |
+          export PM_API_TOKEN_ID='${{ secrets.PVE_API_TOKEN_ID }}'
+          export PM_API_TOKEN_SECRET='${{ secrets.PVE_API_TOKEN_SECRET }}'
+          terraform plan -out=tfplan -input=false
 
       - name: Terraform Apply
         id: tfout
