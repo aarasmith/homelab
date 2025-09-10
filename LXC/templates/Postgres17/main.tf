@@ -8,8 +8,8 @@ module "postgres17_template" {
   ip         = "10.1.1.250/24"
 
   pm_api_url = var.pm_api_url
-  pm_api_token_id     = var.pm_api_token_id
-  pm_api_token_secret = var.pm_api_token_secret
+  pm_user    = var.pm_user
+  pm_password = var.pm_password
   lxc_password    = var.lxc_password
   ssh_public_key  = var.ssh_public_key
 }
@@ -31,12 +31,12 @@ variable "pm_api_url" {
   type        = string
 }
 
-variable "pm_api_token_id" {
+variable "pm_user" {
         type = string
         sensitive = true
 }
 
-variable "pm_api_token_secret" {
+variable "pm_password" {
         type = string
         sensitive = true
 }

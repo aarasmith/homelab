@@ -8,12 +8,10 @@ terraform {
 }
 
 provider "proxmox" {
-  pm_api_url          = var.pm_api_url
-#   pm_user           = var.proxmox_user
-#   pm_password       = var.proxmox_password
-  pm_api_token_id     = var.pm_api_token_id
-  pm_api_token_secret = var.pm_api_token_secret
-  pm_tls_insecure = true
+  pm_api_url        = var.pm_api_url
+  pm_user           = var.proxmox_user
+  pm_password       = var.proxmox_password
+  pm_tls_insecure   = true
 }
 
 variable "pm_api_url" {
@@ -21,12 +19,12 @@ variable "pm_api_url" {
   type        = string
 }
 
-variable "pm_api_token_id" {
+variable "pm_user" {
         type = string
         sensitive = true
 }
 
-variable "pm_api_token_secret" {
+variable "pm_password" {
         type = string
         sensitive = true
 }

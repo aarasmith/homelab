@@ -29,8 +29,8 @@ jobs:
         run: |
           cat > credentials.auto.tfvars <<EOF
           pm_api_url            = "${{ secrets.PVE_API_URL }}"
-          pm_api_token_id       = "${{ secrets.PM_API_TOKEN_ID }}"
-          pm_api_token_secret   = "${{ secrets.PM_API_TOKEN_SECRET }}"
+          pm_user               = "${{ secrets.PVE_USER }}"
+          pm_api_token_secret   = "${{ secrets.PVE_PASSWORD }}"
           lxc_password          = "${{ secrets.LXC_PASSWORD }}"
           ssh_public_key        = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
           EOF
@@ -39,10 +39,7 @@ jobs:
         run: terraform init -input=false
 
       - name: Terraform Plan
-        run: |
-          export PM_API_TOKEN_ID='${{ secrets.PM_API_TOKEN_ID }}'
-          export PM_API_TOKEN_SECRET='${{ secrets.PM_API_TOKEN_SECRET }}'
-          terraform plan -out=tfplan -input=false
+        run: terraform plan -out=tfplan -input=false
 
       - name: Terraform Apply
         id: tfout
