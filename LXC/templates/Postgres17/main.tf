@@ -8,8 +8,8 @@ module "postgres17_template" {
   ip         = "10.1.1.250/24"
 
   proxmox_api_url = var.proxmox_api_url
-  proxmox_user    = var.proxmox_user
-  proxmox_password= var.proxmox_password
+  pm_api_token_id     = var.proxmox_api_token_id
+  pm_api_token_secret = var.proxmox_api_token_secret
   lxc_password    = var.lxc_password
   ssh_public_key  = var.ssh_public_key
 }
@@ -31,13 +31,12 @@ variable "proxmox_api_url" {
   type        = string
 }
 
-variable "proxmox_user" {
-  description = "Proxmox user with permissions"
-  type        = string
+variable "proxmox_api_token_id" {
+        type = string
+        sensitive = true
 }
-#would change - try api token
-variable "proxmox_password" {
-  description = "Proxmox user password"
-  type        = string
-  sensitive   = true
+
+variable "proxmox_api_token_secret" {
+        type = string
+        sensitive = true
 }
