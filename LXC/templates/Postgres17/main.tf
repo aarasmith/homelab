@@ -1,5 +1,6 @@
 module "postgres17_template" {
   source     = "../../../terraform/modules/lxc-template"
+  #would maybe change
   node_name  = "mother"
   hostname   = "postgres17"
   ostemplate = "truenas:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst"
@@ -34,7 +35,7 @@ variable "proxmox_user" {
   description = "Proxmox user with permissions"
   type        = string
 }
-
+#would change - try api token
 variable "proxmox_password" {
   description = "Proxmox user password"
   type        = string

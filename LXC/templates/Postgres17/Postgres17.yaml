@@ -88,11 +88,11 @@
         vzdump {{ vmid }}
         --mode stop
         --compress gzip
-        --dumpdir /mnt/pve/truenas/template/cache
+        --dumpdir {{ templates_dir }}
 
     - name: Rename vzdump file to meaningful name
       shell: |
-        FILE=$(ls -t /mnt/pve/truenas/template/cache/vzdump-lxc-{{ vmid }}-*.gz | head -n1)
-        mv "$FILE" "/mnt/pve/truenas/template/cache/postgres17-debian12.tar.gz"
+        FILE=$(ls -t {{ templates_dir }}/vzdump-lxc-{{ vmid }}-*.gz | head -n1)
+        mv "$FILE" "{{ templates_dir }}/{{ template_name }}.tar.gz"
       args:
         executable: /bin/bash
