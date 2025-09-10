@@ -51,10 +51,6 @@ jobs:
           echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
-      - name: sleep to allow lxc to come online
-        run: |
-            sleep 30
-
       - name: Run Ansible Playbook
         env:
           ANSIBLE_CONFIG: ../../../ansible/ansible.cfg
