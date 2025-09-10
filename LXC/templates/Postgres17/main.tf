@@ -7,9 +7,9 @@ module "postgres17_template" {
   vmid       = "999"
   ip         = "10.1.1.250/24"
 
-  proxmox_api_url = var.proxmox_api_url
-  pm_api_token_id     = var.proxmox_api_token_id
-  pm_api_token_secret = var.proxmox_api_token_secret
+  pm_api_url = var.pm_api_url
+  pm_api_token_id     = var.pm_api_token_id
+  pm_api_token_secret = var.pm_api_token_secret
   lxc_password    = var.lxc_password
   ssh_public_key  = var.ssh_public_key
 }
@@ -26,17 +26,17 @@ variable "ssh_public_key" {
   type        = string
 }
 
-variable "proxmox_api_url" {
+variable "pm_api_url" {
   description = "Proxmox API endpoint"
   type        = string
 }
 
-variable "proxmox_api_token_id" {
+variable "pm_api_token_id" {
         type = string
         sensitive = true
 }
 
-variable "proxmox_api_token_secret" {
+variable "pm_api_token_secret" {
         type = string
         sensitive = true
 }

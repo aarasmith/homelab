@@ -16,17 +16,17 @@ provider "proxmox" {
   pm_tls_insecure = true
 }
 
-variable "proxmox_api_url" {
+variable "pm_api_url" {
   description = "Proxmox API endpoint"
   type        = string
 }
 
-variable "proxmox_api_token_id" {
+variable "pm_api_token_id" {
         type = string
         sensitive = true
 }
 
-variable "proxmox_api_token_secret" {
+variable "pm_api_token_secret" {
         type = string
         sensitive = true
 }

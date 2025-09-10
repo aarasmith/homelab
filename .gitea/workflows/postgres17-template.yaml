@@ -28,11 +28,11 @@ jobs:
       - name: Create credentials.auto.tfvars
         run: |
           cat > credentials.auto.tfvars <<EOF
-          proxmox_api_url    = "${{ secrets.PVE_API_URL }}"
-          proxmox_api_token_id       = "${{ secrets.PVE_API_TOKEN_ID }}"
-          proxmox_api_token_secret   = "${{ secrets.PVE_TOKEN_SECRET }}"
-          lxc_password       = "${{ secrets.LXC_PASSWORD }}"
-          ssh_public_key     = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
+          pm_api_url            = "${{ secrets.PVE_API_URL }}"
+          pm_api_token_id       = "${{ secrets.PVE_API_TOKEN_ID }}"
+          pm_api_token_secret   = "${{ secrets.PVE_TOKEN_SECRET }}"
+          lxc_password          = "${{ secrets.LXC_PASSWORD }}"
+          ssh_public_key        = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
           EOF
 
       - name: Terraform Init
