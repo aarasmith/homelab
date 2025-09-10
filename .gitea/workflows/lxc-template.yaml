@@ -27,6 +27,10 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Render main.tf and hosts.ini
+        run: |
+          python3 ../../../utils/render.py
+
       - name: Create credentials.auto.tfvars
         run: |
           cat > credentials.auto.tfvars <<EOF

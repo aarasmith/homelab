@@ -1,11 +1,10 @@
 module "postgres17_template" {
   source     = "../../../terraform/modules/lxc-template"
-  #would maybe change
-  node_name  = "mother"
+  node_name  = "{{ PVE_NODE_NAME }}"
   hostname   = "postgres17"
   ostemplate = "truenas:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst"
-  vmid       = "999"
-  ip         = "10.1.1.250/24"
+  vmid       = "{{ POSTGRES17_VMID }}"
+  ip         = "{{ POSTGRES17_IP }}/24"
 
   pm_api_url = var.pm_api_url
   pm_user    = var.pm_user
