@@ -1,4 +1,4 @@
-variable "node_name" {
+variable "pm_node_name" {
   type        = string
   description = "The Proxmox node to deploy the container on"
 }
