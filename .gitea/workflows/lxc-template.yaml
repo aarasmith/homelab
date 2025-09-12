@@ -61,7 +61,7 @@ jobs:
         run: |
           cat > vars.auto.tfvars <<EOF
           gateway         = "${{ vars.GATEWAY }}"
-          storage         = "${{ vars.STORAGE }}"
+          storage         = "${{ vars.PVE_DISK_STORAGE }}"
           ostemplate      = "${{ inputs.ostemplate }}"
           hostname        = "${{ inputs.lxc-name }}"
           unprivileged    = ${{ inputs.unprivileged }}
