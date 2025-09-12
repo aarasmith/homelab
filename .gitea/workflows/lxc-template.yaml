@@ -11,6 +11,10 @@ on:
         description: "Ansible playbook file"
         required: true
         type: string
+      template-name:              # NEW
+        description: "Name for LXC template"
+        required: true
+        type: string
     secrets: inherit
 
 jobs:
@@ -27,7 +31,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Render main.tf and hosts.ini
+      - name: Render main.tf
         run: |
           python3 ../../../utils/render.py
 
@@ -56,6 +60,38 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ vars.PVE_NODE_IP }} >> ~/.ssh/known_hosts
+
+      - name: Lookup VMID and IP for Postgres17
+        id: lookup
+        run: |
+          VMID=$(ssh root@${{ vars.PVE_NODE_IP }} \
+            "pvesh get /cluster/resources --type vm --output-format yaml | \
+             awk '/name: Postgres17/{getline; print \$2}' FS=': '")
+          
+          IP=$(ssh root@${{ vars.PVE_NODE_IP }} \
+            "pct exec $VMID ip addr show | grep -oP '(?<=inet )10\.1\.1\.\d+'")
+          
+          echo "POSTGRES17_VMID=$VMID" >> $GITHUB_ENV
+          echo "POSTGRES17_IP=$IP" >> $GITHUB_ENV
+
+      - name: Render hosts.ini
+        run: |
+          cat > hosts.ini <<EOF
+          [lxc_template]
+          lxc ansible_host=${POSTGRES17_IP} ansible_user=root
+
+          [pve_host]
+          pve ansible_host=${{ vars.PVE_NODE_IP }} ansible_user=root
+
+          [pve_host:vars]
+          vmid=${POSTGRES17_VMID}
+          template_name=${{ inputs.template-name }}
+          templates_dir=${{ vars.TEMPLATES_DIR }}
+          EOF
+
+      - name: debug hosts.ini
+        run: cat hosts.ini
 
       - name: Run Ansible Playbook
         env:

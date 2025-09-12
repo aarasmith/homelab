@@ -1,103 +1,18 @@
-name: Deploy LXC template
+name: Postgres17 LXC template CI/CD
 
 on:
-  workflow_call:
-    inputs:
-      working-dir:
-        description: "Directory for Terraform + Ansible"
-        required: true
-        type: string
-      playbook:
-        description: "Ansible playbook file"
-        required: true
-        type: string
-      template-name:              # NEW
-        description: "Name for LXC template"
-        required: true
-        type: string
-    secrets: inherit
+  push:
+    branches:
+      - main
+    paths:
+      - "LXC/templates/Postgres17/**"
+      - "terraform/modules/lxc-template/**"
+  workflow_dispatch:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    container:
-      image: git.arasmith.org/admin/gitea-runner-tools:latest
-
-    defaults:
-      run:
-        working-directory: ${{ inputs.working-dir }}
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Render main.tf
-        run: |
-          python3 ../../../utils/render.py
-
-      - name: Create credentials.auto.tfvars
-        run: |
-          cat > credentials.auto.tfvars <<EOF
-          pm_api_url      = "${{ secrets.PVE_API_URL }}"
-          pm_user         = "${{ secrets.PVE_USER }}"
-          pm_password     = "${{ secrets.PVE_PASSWORD }}"
-          lxc_password    = "${{ secrets.LXC_PASSWORD }}"
-          ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
-          EOF
-
-      - name: Terraform Init
-        run: terraform init -input=false
-
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan -input=false
-
-      - name: Terraform Apply
-        id: tfout
-        run: terraform apply -input=false -auto-approve tfplan
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ vars.PVE_NODE_IP }} >> ~/.ssh/known_hosts
-
-      - name: Lookup VMID and IP for Postgres17
-        id: lookup
-        run: |
-          VMID=$(ssh root@${{ vars.PVE_NODE_IP }} \
-            "pvesh get /cluster/resources --type vm --output-format yaml | \
-             awk '/name: Postgres17/{getline; print \$2}' FS=': '")
-          
-          IP=$(ssh root@${{ vars.PVE_NODE_IP }} \
-            "pct exec $VMID ip addr show | grep -oP '(?<=inet )10\.1\.1\.\d+'")
-          
-          echo "POSTGRES17_VMID=$VMID" >> $GITHUB_ENV
-          echo "POSTGRES17_IP=$IP" >> $GITHUB_ENV
-
-      - name: Render hosts.ini
-        run: |
-          cat > hosts.ini <<EOF
-          [lxc_template]
-          lxc ansible_host=${POSTGRES17_IP} ansible_user=root
-
-          [pve_host]
-          pve ansible_host=${{ vars.PVE_NODE_IP }} ansible_user=root
-
-          [pve_host:vars]
-          vmid=${POSTGRES17_VMID}
-          template_name=${{ inputs.template-name }}
-          templates_dir=${{ vars.TEMPLATES_DIR }}
-          EOF
-
-      - name: debug hosts.ini
-        run: cat hosts.ini
-
-      - name: Run Ansible Playbook
-        env:
-          ANSIBLE_CONFIG: ../../../ansible/ansible.cfg
-        run: ansible-playbook -i hosts.ini ${{ inputs.playbook }}
-
-      - name: Terraform Destroy
-        if: always()
-        run: terraform destroy -auto-approve -input=false
+    uses: ./.gitea/workflows/lxc-template.yaml
+    with:
+      working-dir: LXC/templates/Postgres17
+      playbook: Postgres17.yaml
+    secrets: inherit
