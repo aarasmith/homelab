@@ -42,6 +42,7 @@ jobs:
       - name: Create credentials.auto.tfvars
         run: |
           cat > credentials.auto.tfvars <<EOF
+          pm_node_name    = "${{ vars.PVE_NODE_NAME }}"
           pm_api_url      = "${{ secrets.PVE_API_URL }}"
           pm_user         = "${{ secrets.PVE_USER }}"
           pm_password     = "${{ secrets.PVE_PASSWORD }}"
