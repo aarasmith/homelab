@@ -1,7 +1,7 @@
 module "postgres17_template" {
   source     = "../../../terraform/modules/lxc-template"
-  hostname   = "postgres17"
-  ostemplate = "truenas:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst"
+  hostname   = var.hostname
+  ostemplate = var.ostemplate
   node_name  = var.pm_node_name
   vmid       = null
   ip         = "dhcp"
@@ -22,6 +22,16 @@ variable "lxc_password" {
 
 variable "ssh_public_key" {
   description = "SSH public key to inject into LXC"
+  type        = string
+}
+
+variable "hostname" {
+  description = "Proxmox node name"
+  type        = string
+}
+
+variable "ostemplate" {
+  description = "Proxmox node name"
   type        = string
 }
 

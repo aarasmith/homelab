@@ -51,6 +51,8 @@ jobs:
       - name: Create vars.auto.tfvars
         run: |
           cat > vars.auto.tfvars <<EOF
+          ostemplate      = "${{ inputs.ostemplate }}"
+          hostname        = "${{ inputs.hostname }}"
           pm_node_name    = "${{ vars.PVE_NODE_NAME }}"
           pm_api_url      = "${{ vars.PVE_API_URL }}"
           EOF
