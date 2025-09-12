@@ -61,10 +61,11 @@ jobs:
           echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ vars.PVE_NODE_IP }} >> ~/.ssh/known_hosts
-
+      
       - name: Lookup VMID and IP for Postgres17
         id: lookup
         run: |
+          sleep 15
           VMID=$(ssh root@${{ vars.PVE_NODE_IP }} \
             "pvesh get /cluster/resources --type vm --output-format yaml | \
              awk '/name: Postgres17/{getline; print \$2}' FS=': '")
