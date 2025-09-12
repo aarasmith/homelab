@@ -11,8 +11,12 @@ on:
         description: "Ansible playbook file"
         required: true
         type: string
-      template-name:              # NEW
+      template-name:
         description: "Name for LXC template"
+        required: true
+        type: string
+      lxc-name:
+        description: "Name of the lxc to look up"
         required: true
         type: string
     secrets: inherit
@@ -62,19 +66,26 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ vars.PVE_NODE_IP }} >> ~/.ssh/known_hosts
       
-      - name: Lookup VMID and IP for Postgres17
+      - name: Lookup VMID and IP for the target VM
         id: lookup
         run: |
-          sleep 15
-          VMID=$(ssh root@${{ vars.PVE_NODE_IP }} \
-            "pvesh get /cluster/resources --type vm --output-format yaml | \
-             awk '/name: Postgres17/{getline; print \$2}' FS=': '")
+          # Lookup VMID
+          VMID=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
+            "pvesh get /cluster/resources --type vm --output-format yaml \
+            | awk '/name:[[:space:]]*${{ inputs.lxc-name }}/ {found=1} found && /vmid:/ {print \$2; exit}'")
           
-          IP=$(ssh root@${{ vars.PVE_NODE_IP }} \
+          if [ -z "$VMID" ]; then
+            echo "ERROR: VMID not found for ${{ inputs.lxc-name }}"
+            exit 1
+          fi
+
+          # Lookup IP
+          IP=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
             "pct exec $VMID ip addr show | grep -oP '(?<=inet )10\.1\.1\.\d+'")
-          
-          echo "POSTGRES17_VMID=$VMID" >> $GITHUB_ENV
-          echo "POSTGRES17_IP=$IP" >> $GITHUB_ENV
+
+          echo "POSTGRES_VMID=$VMID" >> $GITHUB_ENV
+          echo "POSTGRES_IP=$IP" >> $GITHUB_ENV
+
 
       - name: Render hosts.ini
         run: |
