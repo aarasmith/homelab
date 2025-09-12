@@ -9,7 +9,7 @@
         update_cache: yes
         upgrade: dist
         autoremove: yes
-        clean: yes
+        autoclean: yes
 
     - name: Install required packages
       apt:
