@@ -26,12 +26,12 @@ variable "ssh_public_key" {
 }
 
 variable "hostname" {
-  description = "Proxmox node name"
+  description = "LXC host name"
   type        = string
 }
 
 variable "ostemplate" {
-  description = "Proxmox node name"
+  description = "Base os template"
   type        = string
 }
 

@@ -52,7 +52,7 @@ jobs:
         run: |
           cat > vars.auto.tfvars <<EOF
           ostemplate      = "${{ inputs.ostemplate }}"
-          hostname        = "${{ inputs.hostname }}"
+          hostname        = "${{ inputs.lxc-name }}"
           pm_node_name    = "${{ vars.PVE_NODE_NAME }}"
           pm_api_url      = "${{ vars.PVE_API_URL }}"
           EOF
