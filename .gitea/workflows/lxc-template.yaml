@@ -35,9 +35,9 @@ jobs:
     container:
       image: git.arasmith.org/admin/gitea-runner-tools:latest
 
-    defaults:
-      run:
-        working-directory: ${{ inputs.working-dir }}
+    # defaults:
+    #   run:
+    #     working-directory: ${{ inputs.working-dir }}
 
     steps:
       - name: Checkout repo
@@ -45,7 +45,7 @@ jobs:
 
       - name: Create credentials.auto.tfvars
         run: |
-          cat > credentials.auto.tfvars <<EOF
+          cat > terraform/modules/lxc-template/credentials.auto.tfvars <<EOF
           pm_user         = "${{ secrets.PVE_USER }}"
           pm_password     = "${{ secrets.PVE_PASSWORD }}"
           lxc_password    = "${{ secrets.LXC_PASSWORD }}"
@@ -55,7 +55,7 @@ jobs:
       - name: Create vars.auto.tfvars
         #note the lack of quotes around the unprivileged bool
         run: |
-          cat > vars.auto.tfvars <<EOF
+          cat > terraform/modules/lxc-template/vars.auto.tfvars <<EOF
           gateway         = "${{ vars.GATEWAY }}"
           storage         = "${{ vars.PVE_DISK_STORAGE }}"
           ostemplate      = "${{ inputs.ostemplate }}"
@@ -66,14 +66,14 @@ jobs:
           EOF
 
       - name: Terraform Init
-        run: terraform init -input=false
+        run: terraform -chdir=terraform/modules/lxc-template init -input=false
 
       - name: Terraform Plan
-        run: terraform plan -out=tfplan -input=false
+        run: terraform -chdir=terraform/modules/lxc-template plan -out=tfplan -input=false
 
       - name: Terraform Apply
         id: tfout
-        run: terraform apply -input=false -auto-approve tfplan
+        run: terraform -chdir=terraform/modules/lxc-template apply -input=false -auto-approve tfplan
 
       - name: Setup SSH key
         run: |
@@ -129,9 +129,9 @@ jobs:
 
       - name: Run Ansible Playbook
         env:
-          ANSIBLE_CONFIG: ../../../ansible/ansible.cfg
-        run: ansible-playbook -i hosts.ini ${{ inputs.playbook }}
+          ANSIBLE_CONFIG: ansible/ansible.cfg
+        run: ansible-playbook -i hosts.ini ansible/${{ input.lxc-name }}/${{ input.lxc-name }}-template.yaml
 
       - name: Terraform Destroy
         if: always()
-        run: terraform destroy -auto-approve -input=false
+        run: terraform -chdir=terraform/modules/lxc-template destroy -auto-approve -input=false

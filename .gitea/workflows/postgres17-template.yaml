@@ -5,8 +5,9 @@ on:
     branches:
       - main
     paths:
-      - "LXC/templates/Postgres17/**"
+      - "ansible/postgres17/postgres17-template.yaml"
       - "terraform/modules/lxc-template/**"
+      - ".gitea/workflows/postgres17-template.yaml"
   workflow_dispatch:
 
 jobs:
