@@ -86,15 +86,19 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ vars.PVE_NODE_IP }} >> ~/.ssh/known_hosts
       
-      - name: Lookup VMID and IP for the target VM
-        id: lookup
+      - name: Lookup VMID and IP for the target LXC
         run: |
           sleep 15
           # Lookup VMID
           VMID=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
             "pvesh get /cluster/resources --type vm --output-format yaml \
-            | awk '/name:[[:space:]]*${{ inputs.lxc-name }}/ {found=1} found && /vmid:/ {print \$2; exit}'")
-          
+            | awk -v target='${{ inputs.lxc-name }}' '
+                /^[[:space:]]*name:/ {
+                  split(\$0, a, \": \")
+                  if (a[2] == target) found=1
+                }
+                found && /^[[:space:]]*vmid:/ {print \$2; exit}'")
+
           if [ -z "$VMID" ]; then
             echo "ERROR: VMID not found for ${{ inputs.lxc-name }}"
             exit 1
@@ -106,6 +110,7 @@ jobs:
 
           echo "LXC_VMID=$VMID" >> $GITHUB_ENV
           echo "LXC_IP=$IP" >> $GITHUB_ENV
+
 
 
       - name: Render hosts.ini
