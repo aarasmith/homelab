@@ -83,21 +83,21 @@ jobs:
           IP=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
             "pct exec $VMID ip addr show | grep -oP '(?<=inet )10\.1\.1\.\d+'")
 
-          echo "POSTGRES_VMID=$VMID" >> $GITHUB_ENV
-          echo "POSTGRES_IP=$IP" >> $GITHUB_ENV
+          echo "LXC_VMID=$VMID" >> $GITHUB_ENV
+          echo "LXC_IP=$IP" >> $GITHUB_ENV
 
 
       - name: Render hosts.ini
         run: |
           cat > hosts.ini <<EOF
           [lxc_template]
-          lxc ansible_host=${POSTGRES17_IP} ansible_user=root
+          lxc ansible_host=${LXC_IP} ansible_user=root
 
           [pve_host]
           pve ansible_host=${{ vars.PVE_NODE_IP }} ansible_user=root
 
           [pve_host:vars]
-          vmid=${POSTGRES17_VMID}
+          vmid=${LXC_VMID}
           template_name=${{ inputs.template-name }}
           templates_dir=${{ vars.TEMPLATES_DIR }}
           EOF
