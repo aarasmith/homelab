@@ -130,7 +130,7 @@ jobs:
       - name: Run Ansible Playbook
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
-        run: ansible-playbook -i hosts.ini ansible/${{ input.lxc-name }}/${{ input.lxc-name }}-template.yaml
+        run: ansible-playbook -i hosts.ini ansible/${{ inputs.lxc-name }}/${{ inputs.lxc-name }}-template.yaml
 
       - name: Terraform Destroy
         if: always()
