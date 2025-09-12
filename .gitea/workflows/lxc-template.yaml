@@ -69,6 +69,7 @@ jobs:
       - name: Lookup VMID and IP for the target VM
         id: lookup
         run: |
+          sleep 15
           # Lookup VMID
           VMID=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
             "pvesh get /cluster/resources --type vm --output-format yaml \
