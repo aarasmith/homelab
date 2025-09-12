@@ -23,6 +23,10 @@ on:
         description: "location of the base os template"
         required: true
         type: string
+      unprivileged:
+        description: "should lxc be unprivileged"
+        required: true
+        type: string
     secrets: inherit
 
 jobs:
@@ -53,10 +57,12 @@ jobs:
           EOF
 
       - name: Create vars.auto.tfvars
+        #note the lack of quotes around the unprivileged bool
         run: |
           cat > vars.auto.tfvars <<EOF
           ostemplate      = "${{ inputs.ostemplate }}"
           hostname        = "${{ inputs.lxc-name }}"
+          unprivileged    = ${{ inputs.unprivileged }}
           pm_node_name    = "${{ vars.PVE_NODE_NAME }}"
           pm_api_url      = "${{ vars.PVE_API_URL }}"
           EOF

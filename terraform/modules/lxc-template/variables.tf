@@ -13,14 +13,9 @@ variable "ostemplate" {
   description = "Path to the OS template (e.g., local:vztmpl/debian-12-standard_12.0-1_amd64.tar.zst)"
 }
 
-variable "vmid" {
-  type        = string
-  description = "The vmid of the lxc"
-}
-
-variable "ip" {
-  type        = string
-  description = "The IP address to assign to the LXC"
+variable "unprivileged" {
+  type        = bool
+  description = "Should the LXC be unprivileged"
 }
 
 variable "lxc_password" {

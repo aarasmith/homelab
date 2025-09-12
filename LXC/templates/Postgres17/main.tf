@@ -3,8 +3,7 @@ module "postgres17_template" {
   hostname   = var.hostname
   ostemplate = var.ostemplate
   node_name  = var.pm_node_name
-  vmid       = null
-  ip         = "dhcp"
+  unprivileged = var.unprivileged
 
   pm_api_url = var.pm_api_url
   pm_user    = var.pm_user
@@ -14,6 +13,21 @@ module "postgres17_template" {
 }
 
 
+variable "hostname" {
+  description = "LXC host name"
+  type        = string
+}
+
+variable "ostemplate" {
+  description = "Base os template"
+  type        = string
+}
+
+variable "unprivileged" {
+  description = "Should the LXC be unprivileged"
+  type        = bool
+}
+
 variable "lxc_password" {
   description = "Root password for the LXC"
   type        = string
@@ -22,16 +36,6 @@ variable "lxc_password" {
 
 variable "ssh_public_key" {
   description = "SSH public key to inject into LXC"
-  type        = string
-}
-
-variable "hostname" {
-  description = "LXC host name"
-  type        = string
-}
-
-variable "ostemplate" {
-  description = "Base os template"
   type        = string
 }
 
