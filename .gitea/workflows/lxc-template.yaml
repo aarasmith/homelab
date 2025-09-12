@@ -3,14 +3,6 @@ name: Deploy LXC template
 on:
   workflow_call:
     inputs:
-      working-dir:
-        description: "Directory for Terraform + Ansible"
-        required: true
-        type: string
-      playbook:
-        description: "Ansible playbook file"
-        required: true
-        type: string
       template-name:
         description: "Name for LXC template"
         required: true
@@ -34,10 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: git.arasmith.org/admin/gitea-runner-tools:latest
-
-    # defaults:
-    #   run:
-    #     working-directory: ${{ inputs.working-dir }}
 
     steps:
       - name: Checkout repo

@@ -14,8 +14,6 @@ jobs:
   deploy:
     uses: ./.gitea/workflows/lxc-template.yaml
     with:
-      working-dir: LXC/templates/Postgres17
-      playbook: Postgres17.yaml
       lxc-name: postgres17
       template-name: postgres17-debian12
       ostemplate: truenas:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst
