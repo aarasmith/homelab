@@ -19,6 +19,10 @@ on:
         description: "Name of the lxc to look up"
         required: true
         type: string
+      ostemplate:
+        description: "location of the base os template"
+        required: true
+        type: string
     secrets: inherit
 
 jobs:
