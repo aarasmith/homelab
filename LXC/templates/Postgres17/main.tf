@@ -3,8 +3,8 @@ module "postgres17_template" {
   node_name  = "{{ PVE_NODE_NAME }}"
   hostname   = "postgres17"
   ostemplate = "truenas:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst"
-  vmid       = "{{ POSTGRES17_VMID }}"
-  ip         = "{{ POSTGRES17_IP }}/24"
+  vmid       = null
+  ip         = "dhcp"
 
   pm_api_url = var.pm_api_url
   pm_user    = var.pm_user
