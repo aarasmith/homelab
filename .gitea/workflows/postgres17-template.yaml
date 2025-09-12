@@ -15,6 +15,6 @@ jobs:
     with:
       working-dir: LXC/templates/Postgres17
       playbook: Postgres17.yaml
-      lxc-name: Postgres17
+      lxc-name: postgres17
       template-name: postgres17-debian12
     secrets: inherit
