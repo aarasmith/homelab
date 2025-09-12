@@ -60,6 +60,8 @@ jobs:
         #note the lack of quotes around the unprivileged bool
         run: |
           cat > vars.auto.tfvars <<EOF
+          gateway         = "${{ vars.GATEWAY }}"
+          storage         = "${{ vars.STORAGE }}"
           ostemplate      = "${{ inputs.ostemplate }}"
           hostname        = "${{ inputs.lxc-name }}"
           unprivileged    = ${{ inputs.unprivileged }}

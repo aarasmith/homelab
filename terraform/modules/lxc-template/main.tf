@@ -10,7 +10,7 @@ resource "proxmox_lxc" "template" {
   cores  = 1
 
   rootfs {
-    storage = "leroy-storage"
+    storage = var.storage
     size    = "16G"
   }
 
@@ -18,7 +18,7 @@ resource "proxmox_lxc" "template" {
     name     = "eth0"
     bridge   = "vmbr0"
     ip       = "dhcp"
-    gw       = "10.1.1.1"
+    gw       = var.gateway
   }
 
   unprivileged = var.unprivileged

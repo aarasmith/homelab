@@ -13,6 +13,16 @@ variable "ostemplate" {
   description = "Path to the OS template (e.g., local:vztmpl/debian-12-standard_12.0-1_amd64.tar.zst)"
 }
 
+variable "storage" {
+  type        = string
+  description = "name of the storage for the lxc disk"
+}
+
+variable "gateway" {
+  type        = string
+  description = "network gateway IP address"
+}
+
 variable "unprivileged" {
   type        = bool
   description = "Should the LXC be unprivileged"

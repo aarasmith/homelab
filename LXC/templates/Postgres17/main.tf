@@ -1,13 +1,15 @@
 module "postgres17_template" {
-  source     = "../../../terraform/modules/lxc-template"
-  hostname   = var.hostname
-  ostemplate = var.ostemplate
-  node_name  = var.pm_node_name
-  unprivileged = var.unprivileged
+  source          = "../../../terraform/modules/lxc-template"
+  hostname        = var.hostname
+  ostemplate      = var.ostemplate
+  gateway         = var.gateway
+  storage         = var.storage
+  node_name       = var.pm_node_name
+  unprivileged    = var.unprivileged
 
-  pm_api_url = var.pm_api_url
-  pm_user    = var.pm_user
-  pm_password = var.pm_password
+  pm_api_url      = var.pm_api_url
+  pm_user         = var.pm_user
+  pm_password     = var.pm_password
   lxc_password    = var.lxc_password
   ssh_public_key  = var.ssh_public_key
 }
@@ -21,6 +23,16 @@ variable "hostname" {
 variable "ostemplate" {
   description = "Base os template"
   type        = string
+}
+
+variable "storage" {
+  type        = string
+  description = "name of the storage for the lxc disk"
+}
+
+variable "gateway" {
+  type        = string
+  description = "network gateway IP address"
 }
 
 variable "unprivileged" {
