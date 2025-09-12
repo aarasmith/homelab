@@ -42,12 +42,17 @@ jobs:
       - name: Create credentials.auto.tfvars
         run: |
           cat > credentials.auto.tfvars <<EOF
-          pm_node_name    = "${{ vars.PVE_NODE_NAME }}"
-          pm_api_url      = "${{ secrets.PVE_API_URL }}"
           pm_user         = "${{ secrets.PVE_USER }}"
           pm_password     = "${{ secrets.PVE_PASSWORD }}"
           lxc_password    = "${{ secrets.LXC_PASSWORD }}"
           ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
+          EOF
+
+      - name: Create vars.auto.tfvars
+        run: |
+          cat > vars.auto.tfvars <<EOF
+          pm_node_name    = "${{ vars.PVE_NODE_NAME }}"
+          pm_api_url      = "${{ vars.PVE_API_URL }}"
           EOF
 
       - name: Terraform Init
