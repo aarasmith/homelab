@@ -2,10 +2,14 @@
 - name: Install and configure PostgreSQL 17 on lxc-template
   hosts: lxc_template
   become: yes
+  
   tasks:
-    - name: Update apt cache
+    - name: Update apt cache and upgrade all packages
       apt:
         update_cache: yes
+        upgrade: dist
+        autoremove: yes
+        clean: yes
 
     - name: Install required packages
       apt:
@@ -28,14 +32,11 @@
         state: present
         filename: "pgdg"
 
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-
     - name: Install PostgreSQL 17
       apt:
         name: postgresql-17
         state: present
+        update_cache: yes
 
     - name: Ensure PostgreSQL service is started and enabled
       systemd:
