@@ -51,6 +51,15 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: debug branch name
+        run: |
+          echo ${{ github.ref_name }}
+          echo $GITHUB_REF_NAME
+          echo ${GITHUB_REF_NAME}
+          echo ${{ gitea.ref_name }}
+          echo $GITEA_REF_NAME
+          echo ${GITEA_REF_NAME}
+
       - name: Create credentials.auto.tfvars
         run: |
           cat > terraform/credentials.auto.tfvars <<EOF
@@ -83,15 +92,6 @@ jobs:
 
       - name: Terraform Plan
         run: terraform -chdir=terraform plan -out=tfplan -input=false
-
-      - name: debug branch name
-        run: |
-          echo ${{ github.ref_name }}
-          echo $GITHUB_REF_NAME
-          echo ${GITHUB_REF_NAME}
-          echo ${{ gitea.ref_name }}
-          echo $GITEA_REF_NAME
-          echo ${GITEA_REF_NAME}
 
       - name: Terraform Apply
         if: gitea.ref_name == 'refs/heads/main'
