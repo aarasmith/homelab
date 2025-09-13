@@ -53,12 +53,12 @@ jobs:
 
       - name: debug branch name
         run: |
-          echo ${{ github.ref_name }}
-          echo $GITHUB_REF_NAME
-          echo ${GITHUB_REF_NAME}
-          echo ${{ gitea.ref_name }}
-          echo $GITEA_REF_NAME
-          echo ${GITEA_REF_NAME}
+          echo 1${{ github.ref_name }}
+          echo 2$GITHUB_REF_NAME
+          echo 3${GITHUB_REF_NAME}
+          echo 4${{ gitea.ref_name }}
+          echo 5$GITEA_REF_NAME
+          echo 6${GITEA_REF_NAME}
 
       - name: Create credentials.auto.tfvars
         run: |
