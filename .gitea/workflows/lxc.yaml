@@ -51,15 +51,6 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: debug branch name
-        run: |
-          echo 1${{ github.ref_name }}
-          echo 2$GITHUB_REF_NAME
-          echo 3${GITHUB_REF_NAME}
-          echo 4${{ gitea.ref_name }}
-          echo 5$GITEA_REF_NAME
-          echo 6${GITEA_REF_NAME}
-
       - name: Create credentials.auto.tfvars
         run: |
           cat > terraform/credentials.auto.tfvars <<EOF
@@ -94,7 +85,7 @@ jobs:
         run: terraform -chdir=terraform plan -out=tfplan -input=false
 
       - name: Terraform Apply
-        if: gitea.ref_name == 'refs/heads/main'
+        if: github.ref_name == 'main'
         id: tfout
         run: terraform -chdir=terraform apply -input=false -auto-approve tfplan
 
@@ -122,7 +113,7 @@ jobs:
         run: cat hosts.ini
 
       - name: Run Ansible Playbook
-        if: gitea.ref_name == 'refs/heads/main'
+        if: github.ref_name == 'main'
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
         run: ansible-playbook -i hosts.ini ansible/lxc/${{ inputs.lxc_name }}.yaml
