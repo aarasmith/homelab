@@ -1,18 +1,38 @@
-name: Deploy LXC template
+name: Deploy LXC
 
 on:
   workflow_call:
     inputs:
-      template-name:
-        description: "Name for LXC template"
-        required: true
-        type: string
       lxc_name:
         description: "Name of the lxc to look up"
         required: true
         type: string
       ostemplate:
         description: "location of the base os template"
+        required: true
+        type: string
+      vmid:
+        description: "vmid for the LXC"
+        required: true
+        type: string
+      memory:
+        description: "memory for the LXC in MB"
+        required: true
+        type: string
+      cores:
+        description: "number of cores for LXC"
+        required: true
+        type: string
+      storage_size:
+        description: "size of LXC disk"
+        required: true
+        type: string
+      ip:
+        description: "ip addres for LXC"
+        required: true
+        type: string
+      enable_docker:
+        description: "enable keyctl and nesting for docker"
         required: true
         type: string
       unprivileged:
@@ -33,7 +53,7 @@ jobs:
 
       - name: Create credentials.auto.tfvars
         run: |
-          cat > terraform/modules/lxc/credentials.auto.tfvars <<EOF
+          cat > terraform/credentials.auto.tfvars <<EOF
           pm_user         = "${{ secrets.PVE_USER }}"
           pm_password     = "${{ secrets.PVE_PASSWORD }}"
           lxc_password    = "${{ secrets.LXC_PASSWORD }}"
@@ -43,10 +63,15 @@ jobs:
       - name: Create vars.auto.tfvars
         #note the lack of quotes around the unprivileged bool
         run: |
-          cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
+          cat > terraform/vars.auto.tfvars <<EOF
           gateway         = "${{ vars.GATEWAY }}"
           storage         = "${{ vars.PVE_DISK_STORAGE }}"
           ostemplate      = "${{ inputs.ostemplate }}"
+          memory          = "${{ inputs.memory }}"
+          cores           = "${{ inputs.cores }}"
+          storage_size    = "${{ inputs.storage_size }}"
+          ip              = "${{ inputs.ip }}"
+          enable_docker   = "${{ inputs.enable_docker }}"
           hostname        = "${{ inputs.lxc_name }}"
           unprivileged    = ${{ inputs.unprivileged }}
           pm_node_name    = "${{ vars.PVE_NODE_NAME }}"
@@ -54,14 +79,15 @@ jobs:
           EOF
 
       - name: Terraform Init
-        run: terraform -chdir=terraform/modules/lxc init -input=false
+        run: terraform -chdir=terraform init -input=false
 
       - name: Terraform Plan
-        run: terraform -chdir=terraform/modules/lxc plan -out=tfplan -input=false
+        run: terraform -chdir=terraform plan -out=tfplan -input=false
 
       - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
         id: tfout
-        run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan
+        run: terraform -chdir=terraform apply -input=false -auto-approve tfplan
 
       - name: Setup SSH key
         run: |
@@ -69,55 +95,25 @@ jobs:
           echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ vars.PVE_NODE_IP }} >> ~/.ssh/known_hosts
-      
-      - name: Lookup VMID and IP for the target LXC
-        run: |
-          sleep 15
-          # Lookup VMID
-          VMID=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
-            "pvesh get /cluster/resources --type vm --output-format yaml \
-            | awk -v target='${{ inputs.lxc_name }}' '
-                /^[[:space:]]*name:/ {
-                  split(\$0, a, \": \")
-                  if (a[2] == target) found=1
-                }
-                found && /^[[:space:]]*vmid:/ {print \$2; exit}'")
-
-          if [ -z "$VMID" ]; then
-            echo "ERROR: VMID not found for ${{ inputs.lxc_name }}"
-            exit 1
-          fi
-
-          # Lookup IP
-          IP=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
-            "pct exec $VMID ip addr show | grep -oP '(?<=inet )10\.1\.1\.\d+'")
-
-          echo "LXC_VMID=$VMID" >> $GITHUB_ENV
-          echo "LXC_IP=$IP" >> $GITHUB_ENV
 
       - name: Render hosts.ini
         run: |
           cat > hosts.ini <<EOF
           [lxc_template]
-          lxc ansible_host=${LXC_IP} ansible_user=root
+          lxc ansible_host=${{ inputs.ip }} ansible_user=root
 
           [pve_host]
           pve ansible_host=${{ vars.PVE_NODE_IP }} ansible_user=root
 
           [pve_host:vars]
-          vmid=${LXC_VMID}
-          template_name=${{ inputs.template-name }}
-          templates_dir=${{ vars.TEMPLATES_DIR }}
+          vmid=${{ inputs.vmid }}
           EOF
 
       - name: debug hosts.ini
         run: cat hosts.ini
 
       - name: Run Ansible Playbook
+        if: github.ref == 'refs/heads/main'
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
-        run: ansible-playbook -i hosts.ini ansible/lxc-template/${{ inputs.lxc_name }}-template.yaml
-
-      - name: Terraform Destroy
-        if: always()
-        run: terraform -chdir=terraform/modules/lxc destroy -auto-approve -input=false
+        run: ansible-playbook -i hosts.ini ansible/lxc/${{ inputs.lxc_name }}.yaml

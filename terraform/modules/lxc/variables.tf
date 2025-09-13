@@ -8,6 +8,12 @@ variable "ostemplate" {
   description = "Path to the OS template (e.g., local:vztmpl/debian-12-standard_12.0-1_amd64.tar.zst)"
 }
 
+variable "vmid" {
+  type        = number
+  description = "vmid for the LXC"
+  default = null
+}
+
 variable "pm_node_name" {
   type        = string
   description = "The Proxmox node to deploy the container on"
