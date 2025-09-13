@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "ansible/docker/docker-template.yaml"
+      - "ansible/lxc-template/docker-template.yaml"
       - "terraform/modules/lxc-template/**"
       - ".gitea/workflows/docker-template.yaml"
   workflow_dispatch:
