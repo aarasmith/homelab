@@ -85,7 +85,7 @@ jobs:
         run: terraform -chdir=terraform plan -out=tfplan -input=false
 
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/main'
+        if: github.ref_name == 'refs/heads/main'
         id: tfout
         run: terraform -chdir=terraform apply -input=false -auto-approve tfplan
 
@@ -113,7 +113,7 @@ jobs:
         run: cat hosts.ini
 
       - name: Run Ansible Playbook
-        if: github.ref == 'refs/heads/main'
+        if: ${{ github.ref_name }} == 'refs/heads/main'
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
         run: ansible-playbook -i hosts.ini ansible/lxc/${{ inputs.lxc_name }}.yaml
