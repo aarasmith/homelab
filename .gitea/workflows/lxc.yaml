@@ -84,8 +84,17 @@ jobs:
       - name: Terraform Plan
         run: terraform -chdir=terraform plan -out=tfplan -input=false
 
+      - name: debug branch name
+        run: |
+          echo ${{ github.ref_name }}
+          echo $GITHUB_REF_NAME
+          echo ${GITHUB_REF_NAME}
+          echo ${{ gitea.ref_name }}
+          echo $GITEA_REF_NAME
+          echo ${GITEA_REF_NAME}
+
       - name: Terraform Apply
-        if: github.ref_name == 'refs/heads/main'
+        if: gitea.ref_name == 'refs/heads/main'
         id: tfout
         run: terraform -chdir=terraform apply -input=false -auto-approve tfplan
 
@@ -113,7 +122,7 @@ jobs:
         run: cat hosts.ini
 
       - name: Run Ansible Playbook
-        if: ${{ github.ref_name }} == 'refs/heads/main'
+        if: gitea.ref_name == 'refs/heads/main'
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
         run: ansible-playbook -i hosts.ini ansible/lxc/${{ inputs.lxc_name }}.yaml
