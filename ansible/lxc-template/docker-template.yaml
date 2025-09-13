@@ -49,4 +49,4 @@
         state: started
         enabled: true
 
-- import_playbook: ../common_playbooks/dump-lxc-to-template.yaml
+- import_playbook: ../common/dump-lxc-to-template.yaml
