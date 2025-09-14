@@ -1,7 +1,9 @@
 provider "aws" {}
 
 terraform {
-  backend "s3" {}
+  backend "s3" {
+    
+  }
 }
 
 locals {
