@@ -38,7 +38,6 @@ jobs:
           REPO_NAME=$(echo "${GITEA_REPOSITORY}" | cut -d'/' -f2)
           cat > terraform/backend.tfvars <<EOF
           bucket = "${{ vars.AWS_TF_BACKEND_BUCKET }}"
-          key    = "${REPO_NAME}"
           region = "${{ vars.AWS_REGION }}"
           EOF
 
