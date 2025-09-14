@@ -16,7 +16,7 @@ module "arr" {
   source     = "./modules/lxc/"
   pm_node_name  = "mother"
   hostname   = "arr"
-  ostemplate = "truenas:vztmpl/docker-debian12.tar.zst"
+  ostemplate = "truenas:vztmpl/docker-debian12.tar.gz"
   vmid       = "301"
   ip         = "10.1.1.20/24"
   gateway = local.gateway
