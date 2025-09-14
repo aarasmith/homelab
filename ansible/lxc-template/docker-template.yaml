@@ -48,5 +48,3 @@
         name: docker
         state: started
         enabled: true
-
-- import_playbook: ../common/dump-lxc-to-template.yaml

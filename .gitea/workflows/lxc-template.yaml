@@ -113,11 +113,16 @@ jobs:
       - name: debug hosts.ini
         run: cat hosts.ini
 
+      - name: inject ansible pve task
+        if: ${{ github.ref_name == 'main' }}
+        run: |
+          echo "- import_playbook: ../common/dump-lxc-to-template.yaml" >> ansible/lxc-template/${{ inputs.lxc_name }}-template.yaml
+
       - name: Run Ansible Playbook
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
         run: ansible-playbook -i hosts.ini ansible/lxc-template/${{ inputs.lxc_name }}-template.yaml
 
       - name: Terraform Destroy
-        if: always()
+        if: ${{ github.ref_name == 'main' }}
         run: terraform -chdir=terraform/modules/lxc destroy -auto-approve -input=false

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - "feature/**"
     paths:
       - "ansible/lxc-template/docker-template.yaml"
       - "terraform/modules/lxc-template/**"

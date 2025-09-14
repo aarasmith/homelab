@@ -72,5 +72,3 @@
       file:
         path: /var/spool/postfix/dev/urandom
         state: absent
-
-- import_playbook: ../common/dump-lxc-to-template.yaml
