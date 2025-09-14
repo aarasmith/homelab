@@ -73,6 +73,7 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
@@ -149,6 +150,9 @@ jobs:
       image: git.arasmith.org/admin/gitea-runner-tools:latest
 
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        
       - name: Terraform Destroy
         run: |
           terraform -chdir=terraform/modules/lxc init -input=false
