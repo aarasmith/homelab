@@ -116,7 +116,7 @@ jobs:
       - name: inject ansible pve task
         if: ${{ github.ref_name == 'main' }}
         run: |
-          echo "- import_playbook: ../common/dump-lxc-to-template.yaml" >> ansible/lxc-template/${{ inputs.lxc_name }}-template.yaml
+          echo "\n- import_playbook: ../common/dump-lxc-to-template.yaml" >> ansible/lxc-template/${{ inputs.lxc_name }}-template.yaml
 
       - name: Run Ansible Playbook
         env:
