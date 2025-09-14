@@ -29,6 +29,7 @@ jobs:
           cat > terraform/credentials.auto.tfvars <<EOF
           pm_user         = "${{ secrets.PVE_USER }}"
           pm_password     = "${{ secrets.PVE_PASSWORD }}"
+          pm_api_url      = "${{ vars.PVE_API_URL }}"
           lxc_password    = "${{ secrets.LXC_PASSWORD }}"
           ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
           EOF
