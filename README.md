@@ -12,6 +12,8 @@ container:
 The following repo secrets are required:
 
 ```
+AWS_ACCESS_KEY_ID=<access key id to aws for provider>
+AWS_SECRET_ACCESS_KEY=<access key to aws>
 PVE_USER=<proxmox username e.g. some-username@pam>
 PVE_PASSWORD=<proxmox password>
 LXC_PASSWORD=<password for LXC's>
@@ -25,6 +27,7 @@ Ensure that the public key is also added to the PVE host as ansible needs to run
 The following repo variables are required:
 
 ```
+AWS_REGION="aws region for backend bucket/any aws infra"
 GATEWAY=<the network gateway ip>
 TEMPLATES_DIR=<directory where templates are saved on node e.g. /mnt/pve/local/template/cache
 PVE_NODE_IP=<ip address of the proxmox node you're building on>
