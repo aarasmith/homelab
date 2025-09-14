@@ -153,7 +153,7 @@ jobs:
         run: ansible-playbook -i hosts.ini ansible/lxc-template/${{ inputs.lxc_name }}-template.yaml
 
   cleanup:
-    if: ${{ github.ref_name == 'main' }}
+    if: ${{ github.ref_name == 'main' }} && always()
     needs: ansible
     #add new runner tag "prod"
     runs-on: ubuntu-latest
