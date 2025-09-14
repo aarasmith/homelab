@@ -22,7 +22,7 @@ on:
     secrets: inherit
 
 jobs:
-  deploy:
+  terraform:
     runs-on: ubuntu-latest
     container:
       image: git.arasmith.org/admin/gitea-runner-tools:latest
@@ -60,9 +60,19 @@ jobs:
         run: terraform -chdir=terraform/modules/lxc plan -out=tfplan -input=false
 
       - name: Terraform Apply
+        if: ${{ github.ref_name == 'main' }}
         id: tfout
         run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan
 
+  ansible:
+    #add new runner tag "prod"
+    runs-on: ubuntu-latest
+    container:
+      image: git.arasmith.org/admin/debian-latest-ansible:nightly
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
@@ -71,6 +81,7 @@ jobs:
           ssh-keyscan -H ${{ vars.PVE_NODE_IP }} >> ~/.ssh/known_hosts
       
       - name: Lookup VMID and IP for the target LXC
+        if: ${{ github.ref_name == 'main' }}
         run: |
           sleep 15
           # Lookup VMID
@@ -94,12 +105,19 @@ jobs:
 
           echo "LXC_VMID=$VMID" >> $GITHUB_ENV
           echo "LXC_IP=$IP" >> $GITHUB_ENV
+          echo "ANSIBLE_CONNECTION=ssh" >> $GITHUB_ENV
+
+      - name: Set test ansible target
+        if: ${{ github.ref_name != 'main' }}
+        run: |
+          echo "LXC_IP=localhost" >> $GITHUB_ENV
+          echo "ANSIBLE_CONNECTION=local" >> $GITHUB_ENV
 
       - name: Render hosts.ini
         run: |
           cat > hosts.ini <<EOF
           [lxc_template]
-          lxc ansible_host=${LXC_IP} ansible_user=root
+          lxc ansible_host=${LXC_IP} ansible_user=root ansible_connection=${ANSIBLE_CONNECTION}
 
           [pve_host]
           pve ansible_host=${{ vars.PVE_NODE_IP }} ansible_user=root
@@ -123,6 +141,15 @@ jobs:
           ANSIBLE_CONFIG: ansible/ansible.cfg
         run: ansible-playbook -i hosts.ini ansible/lxc-template/${{ inputs.lxc_name }}-template.yaml
 
+  cleanup:
+    if: ${{ github.ref_name == 'main' }}
+    #add new runner tag "prod"
+    runs-on: ubuntu-latest
+    container:
+      image: git.arasmith.org/admin/gitea-runner-tools:latest
+
+    steps:
       - name: Terraform Destroy
-        if: ${{ github.ref_name == 'main' }}
-        run: terraform -chdir=terraform/modules/lxc destroy -auto-approve -input=false
+        run: |
+          terraform -chdir=terraform/modules/lxc init -input=false
+          terraform -chdir=terraform/modules/lxc destroy -auto-approve -input=false
