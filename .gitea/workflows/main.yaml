@@ -52,5 +52,6 @@ jobs:
         run: terraform -chdir=terraform plan -out=tfplan -input=false
 
       - name: Terraform Apply
+        if: ${{ github.ref_name }} == 'main'
         id: tfout
         run: terraform -chdir=terraform apply -input=false -auto-approve tfplan
