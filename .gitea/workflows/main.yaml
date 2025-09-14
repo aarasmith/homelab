@@ -7,7 +7,7 @@ on:
       - "feature/**"
     paths:
       - "terraform/**"
-      - ".gitea/workflows/arr-lxc.yaml"
+      - ".gitea/workflows/main.yaml"
   workflow_dispatch:
 
 jobs:
