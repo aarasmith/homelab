@@ -24,3 +24,13 @@ variable "ssh_public_key" {
   type        = string
 }
 
+variable "gateway" {
+  description = "ip address for network gateway"
+  type        = string
+}
+
+variable "storage" {
+  description = "storage for LXC/VM disks"
+  type        = string
+}
+

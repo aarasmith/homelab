@@ -14,7 +14,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     container:
-      image: git.arasmith.org/admin/gitea-runner-tools:latest
+      image: ${{ vars.RUNNER_IMAGE }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -29,9 +29,16 @@ jobs:
           cat > terraform/credentials.auto.tfvars <<EOF
           pm_user         = "${{ secrets.PVE_USER }}"
           pm_password     = "${{ secrets.PVE_PASSWORD }}"
-          pm_api_url      = "${{ vars.PVE_API_URL }}"
           lxc_password    = "${{ secrets.LXC_PASSWORD }}"
           ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
+          EOF
+      
+      - name: Create vars.auto.tfvars
+        run: |
+          cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
+          gateway         = "${{ vars.GATEWAY }}"
+          storage         = "${{ vars.PVE_DISK_STORAGE }}"
+          pm_api_url      = "${{ vars.PVE_API_URL }}"
           EOF
       
       - name: Generate backend.tfvars from repo vars

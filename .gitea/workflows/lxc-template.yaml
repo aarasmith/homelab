@@ -25,7 +25,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     container:
-      image: git.arasmith.org/admin/gitea-runner-tools:latest
+      image: ${{ vars.RUNNER_IMAGE }}
 
     steps:
       - name: Checkout repo

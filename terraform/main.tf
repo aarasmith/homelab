@@ -6,12 +6,6 @@ terraform {
   }
 }
 
-locals {
-  gateway = "10.1.1.1"
-  storage = "leroy-storage"
-}
-
-
 module "arr" {
   source     = "./modules/lxc/"
   pm_node_name  = "mother"
@@ -19,10 +13,10 @@ module "arr" {
   ostemplate = "truenas:vztmpl/docker-debian12.tar.gz"
   vmid       = "301"
   ip         = "10.1.1.20/24"
-  gateway = local.gateway
+  gateway = var.gateway
   memory = 2048
   cores = 1
-  storage = local.storage
+  storage = var.storage
   storage_size = "16G"
   enable_docker = true
   unprivileged = true
