@@ -35,7 +35,7 @@ jobs:
       
       - name: Create vars.auto.tfvars
         run: |
-          cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
+          cat > terraform/vars.auto.tfvars <<EOF
           gateway         = "${{ vars.GATEWAY }}"
           storage         = "${{ vars.PVE_DISK_STORAGE }}"
           pm_api_url      = "${{ vars.PVE_API_URL }}"
