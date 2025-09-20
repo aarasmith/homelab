@@ -69,7 +69,7 @@ jobs:
           [lxc]
           ${{ inputs.lxc_name }} ansible_host=${LXC_IP} ansible_user=root
 
-          [lxc:vars]
+          [all:vars]
           source_host=${{ inputs.source_host }}
           source_user=${{ inputs.source_user }}
           EOF
