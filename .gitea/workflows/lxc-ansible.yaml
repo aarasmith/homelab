@@ -59,7 +59,7 @@ jobs:
         run: |
           cat > hosts.ini <<EOF
           [lxc]
-          {{ inputs.lxc_name }} ansible_host=${LXC_IP} ansible_user=root
+          ${{ inputs.lxc_name }} ansible_host=${LXC_IP} ansible_user=root
 
           [pve_host]
           pve ansible_host=${{ vars.PVE_NODE_IP }} ansible_user=root
