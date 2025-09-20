@@ -76,3 +76,10 @@
         path: "/tmp/{{ item.name }}-config.tar.gz"
         state: absent
       loop: "{{ apps }}"
+
+    - name: Restart Docker containers on source host
+      ansible.builtin.shell: docker start {{ item.name }}
+      delegate_to: "{{ source_host }}"
+      remote_user: "{{ source_user }}"
+      loop: "{{ apps }}"
+
