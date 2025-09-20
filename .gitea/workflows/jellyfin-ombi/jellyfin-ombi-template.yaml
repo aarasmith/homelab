@@ -1,0 +1,22 @@
+name: jellyfin-ombi stack LXC template CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+    paths:
+      - "ansible/jellyfin-ombi/jellyfin-ombi-template.yaml"
+      - ".gitea/workflows/jellyfin-ombi/jellyfin-ombi-template.yaml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.gitea/workflows/lxc-template.yaml
+    with:
+      lxc_name: jellyfin-ombi
+      template_name: jellyfin-ombi-debian12
+      ostemplate: truenas:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst
+      enable_docker: false
+      unprivileged: true
+    secrets: inherit

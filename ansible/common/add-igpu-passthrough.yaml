@@ -1,0 +1,12 @@
+- name: Ensure LXC device passthrough (dev0) is configured
+  hosts: pve_host
+  become: yes
+  tasks:
+    - name: Check existing LXC config
+      command: pct config {{ vmid }}
+      register: pct_config
+      changed_when: false
+
+    - name: Add device passthrough if missing
+      command: pct set {{ vmid }} -dev0 /dev/dri/renderD128,gid=104
+      when: "'dev0: /dev/dri/renderD128,gid=104' not in pct_config.stdout"

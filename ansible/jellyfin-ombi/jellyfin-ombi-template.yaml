@@ -1,0 +1,101 @@
+---
+- name: Install Ombi and Jellyfin on Debian 12
+  hosts: lxc_template
+  become: true
+  vars:
+    # Ombi settings
+    ombi_repo: "deb https://apt.ombi.app/develop jessie main"
+    ombi_repo_file: "/etc/apt/sources.list.d/ombi.list"
+    ombi_gpg_key_url: "https://apt.ombi.app/pub.key"
+    ombi_package: "ombi"
+
+    # Jellyfin settings
+    jellyfin_key: "/etc/apt/keyrings/jellyfin.gpg"
+    jellyfin_package: "jellyfin"
+
+  tasks:
+    - name: Ensure prerequisites are installed
+      apt:
+        name:
+          - curl
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+# ------------------------
+# OMBI SETUP
+# ------------------------
+    - name: Add Ombi apt repository
+      copy:
+        dest: "{{ ombi_repo_file }}"
+        content: "{{ ombi_repo }}\n"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Add Ombi GPG key
+      apt_key:
+        url: "{{ ombi_gpg_key_url }}"
+        state: present
+
+    - name: Install Ombi
+      apt:
+        name: "{{ ombi_package }}"
+        state: present
+        update_cache: yes
+    
+    - name: Ensure Ombi service is enabled and running
+      systemd:
+        name: ombi
+        enabled: yes
+        state: started
+
+# ------------------------
+# JELLYFIN SETUP
+# ------------------------
+    - name: Ensure /etc/apt/keyrings exists
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Download Jellyfin GPG key
+      get_url:
+        url: https://repo.jellyfin.org/jellyfin_team.gpg.key
+        dest: "{{ jellyfin_key }}"
+        mode: "0644"
+
+    - name: Detect Debian codename
+      ansible.builtin.command: "awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release"
+      register: debian_codename
+      changed_when: false
+
+    - name: Add Jellyfin apt repository
+      copy:
+        dest: /etc/apt/sources.list.d/jellyfin.sources
+        content: |
+          Types: deb
+          URIs: https://repo.jellyfin.org/debian
+          Suites: {{ debian_codename.stdout }}
+          Components: main
+          Architectures: {{ ansible_architecture }}
+          Signed-By: {{ jellyfin_key }}
+        mode: "0644"
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Jellyfin
+      apt:
+        name: "{{ jellyfin_package }}"
+        state: present
+
+    - name: Ensure Jellyfin service is enabled and running
+      systemd:
+        name: jellyfin
+        enabled: yes
+        state: started
