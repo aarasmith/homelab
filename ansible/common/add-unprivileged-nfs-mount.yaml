@@ -8,5 +8,5 @@
       changed_when: false
 
     - name: Add mount point
-      command: pct set {{ vmid }} -mp0 /mnt/media ,mp=/mnt/data
+      command: pct set {{ vmid }} -mp0 /mnt/media,mp=/mnt/data
       when: "'mp0: /mnt/media,mp=/mnt/data' not in pct_config.stdout"
