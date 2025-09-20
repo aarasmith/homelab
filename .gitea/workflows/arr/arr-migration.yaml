@@ -11,3 +11,4 @@ jobs:
       playbook: ansible/arr/arr-migration.yaml
       source_host: "10.1.1.61"
       source_user: dietpi
+    secrets: inherit

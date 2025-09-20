@@ -16,7 +16,7 @@ jobs:
     with:
       pm_node_name: "mother"
       lxc_name: arr
-      ostemplate: truenas:vztmpl/docker-debian12.tar.gz
+      ostemplate: truenas:vztmpl/arr-debian12.tar.gz
       vmid: "301"
       ip: "10.1.1.20/24"
       memory: "2048"
@@ -34,8 +34,7 @@ jobs:
       
       - name: sleep to allow lxc to come online
         run: sleep 15
-      
-  
+       
   add-mount:
     if: ${{ github.ref_name == 'main' }}
     needs: post-deploy
@@ -43,6 +42,7 @@ jobs:
     with:
       lxc_name: arr
       playbook: ansible/common/add-unprivileged-nfs-mount.yaml
+    secrets: inherit
 
   start-containers:
     if: ${{ github.ref_name == 'main' }}
@@ -51,3 +51,4 @@ jobs:
     with:
       lxc_name: arr
       playbook: ansible/common/start-docker-containers.yaml
+    secrets: inherit
