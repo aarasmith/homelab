@@ -1,0 +1,63 @@
+networks:
+  main:
+
+services:
+  prowlarr:
+    image: ghcr.io/linuxserver/prowlarr:develop
+    container_name: prowlarr
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      - main
+    ports:
+      - "9696:9696"
+    volumes:
+      - /docker/appdata/prowlarr:/config
+      - "/etc/localtime:/etc/localtime:ro"
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      - main
+    ports:
+      - "8989:8989"
+    volumes:
+      - /docker/appdata/sonarr:/config
+      - /mnt/data:/data
+      - "/etc/localtime:/etc/localtime:ro"
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      - main
+    ports:
+      - "7878:7878"
+    volumes:
+      - /docker/appdata/radarr:/config
+      - /mnt/data:/data
+      - "/etc/localtime:/etc/localtime:ro"
+
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      - main
+    ports:
+      - "8084:8080"
+    volumes:
+      - /docker/appdata/sabnzbd:/config
+      - /mnt/data:/data
+    environment:
+      UMASK_SET: 002

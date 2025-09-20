@@ -1,0 +1,12 @@
+---
+- name: Start Docker Compose stack on remote host
+  hosts: lxc
+  become: yes
+  vars:
+    docker_dir: /docker
+
+  tasks:
+    - name: Start Docker Compose stack
+      ansible.builtin.command:
+        cmd: docker compose up -d
+        chdir: "{{ docker_dir }}"

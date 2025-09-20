@@ -1,0 +1,43 @@
+name: Arr LXC CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+    paths:
+      - ".gitea/workflows/arr/arr-lxc.yaml"
+      - ".gitea/workflows/lxc-terraform.yaml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.gitea/workflows/lxc-terraform.yaml
+    with:
+      pm_node_name: "mother"
+      lxc_name: arr
+      ostemplate: truenas:vztmpl/docker-debian12.tar.gz
+      vmid: "301"
+      ip: "10.1.1.20/24"
+      memory: "2048"
+      cores: "1"
+      storage_size: "16G"
+      enable_docker: true
+      unprivileged: true
+    secrets: inherit
+  
+  add-mount:
+    if: ${{ github.ref_name == 'main' }}
+    needs: deploy
+    uses: ./.gitea/workflows/lxc-ansible.yaml
+    with:
+      lxc_name: arr
+      playbook: ansible/common/add-unprivileged-nfs-mount.yaml
+
+  start-containers:
+    if: ${{ github.ref_name == 'main' }}
+    needs: deploy
+    uses: ./.gitea/workflows/lxc-ansible.yaml
+    with:
+      lxc_name: arr
+      playbook: ansible/common/start-docker-containers.yaml

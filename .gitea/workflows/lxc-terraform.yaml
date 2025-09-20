@@ -1,0 +1,115 @@
+name: Deploy LXC template
+
+on:
+  workflow_call:
+    inputs:
+      pm_node_name:
+        description: "Name for PVE node to deploy on"
+        required: true
+        type: string
+      lxc_name:
+        description: "Hostname of the LXC"
+        required: true
+        type: string
+      ostemplate:
+        description: "location of the base os template"
+        required: true
+        type: string
+      vmid:
+        description: "VMID for the LXC"
+        required: true
+        type: string
+      ip:
+        description: "IP address for the LXC"
+        required: true
+        type: string
+      memory:
+        description: "Memory in MB for the LXC"
+        required: true
+        type: string
+      cores:
+        description: "Number of cores for the LXC"
+        required: true
+        type: string
+      storage_size:
+        description: "Size of the LXC disk e.g. 16G"
+        required: true
+        type: string
+      enable_docker:
+        description: "Should keyctl and nesting be enabled so docker can run"
+        required: true
+        type: string
+      unprivileged:
+        description: "should lxc be unprivileged"
+        required: true
+        type: string
+    secrets: inherit
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create credentials.auto.tfvars
+        run: |
+          cat > terraform/modules/lxc/credentials.auto.tfvars <<EOF
+          pm_user         = "${{ secrets.PVE_USER }}"
+          pm_password     = "${{ secrets.PVE_PASSWORD }}"
+          lxc_password    = "${{ secrets.LXC_PASSWORD }}"
+          ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
+          EOF
+      
+      - name: Create vars.auto.tfvars
+        #note the unquoted variables (numeric/bool)
+        run: |
+          cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
+          gateway        = "${{ vars.GATEWAY }}"
+          storage        = "${{ vars.PVE_DISK_STORAGE }}"
+          pm_api_url     = "${{ vars.PVE_API_URL }}"
+
+          pm_node_name   = "${{ inputs.pm_node_name }}"
+          hostname       = "${{ inputs.lxc_name }}"
+          ostemplate     = "${{ inputs.ostemplate }}"
+          vmid           = "${{ inputs.vmid }}"
+          ip             = "${{ inputs.ip }}"
+          memory         = ${{ inputs.memory }}
+          cores          = ${{ inputs.cores }}
+          storage_size   = "${{ inputs.storage_size }}"
+          enable_docker  = ${{ inputs.enable_docker }}
+          unprivileged   = ${{ inputs.unprivileged }}
+          EOF
+      
+      - name: Generate backend.tf
+        run: |
+          cat > terraform/modules/lxc/backend.tf <<EOF
+          terraform {
+            backend "s3" {
+              bucket = "${{ vars.AWS_TF_BACKEND_BUCKET }}"
+              region = "${{ vars.AWS_REGION }}"
+              key    = "${{ inputs.lxc_name }}.tfstate"
+            }
+          }
+          EOF
+
+      - name: debug backend.tfvars
+        run: cat terraform/modules/lxc/backend.tf
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform/modules/lxc init -input=false
+
+      - name: Terraform Plan
+        run: terraform -chdir=terraform/modules/lxc plan -out=tfplan -input=false
+
+      - name: Terraform Apply
+        if: ${{ github.ref_name == 'main' }}
+        id: tfout
+        run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan

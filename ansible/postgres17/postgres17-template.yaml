@@ -1,6 +1,6 @@
 ---
 - name: Install and configure PostgreSQL 17 on lxc-template
-  hosts: lxc_template
+  hosts: lxc
   become: yes
   
   tasks:

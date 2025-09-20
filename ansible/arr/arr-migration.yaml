@@ -1,0 +1,78 @@
+---
+- name: Migrate Radarr, Sonarr, Prowlarr, SABnzbd data between Docker hosts
+  hosts: lxc
+  become: yes
+  vars:
+    apps:
+      - name: radarr
+        docker_path: /docker/appdata/radarr
+      - name: sonarr
+        docker_path: /docker/appdata/sonarr
+      - name: prowlarr
+        docker_path: /docker/appdata/prowlarr
+      - name: sabnzbd
+        docker_path: /docker/appdata/sabnzbd
+
+  tasks:
+    - name: Stop Docker containers on source host
+      ansible.builtin.shell: docker stop {{ item.name }}
+      delegate_to: "{{ source_host }}"
+      remote_user: "{{ source_user }}"
+      loop: "{{ apps }}"
+
+    - name: Archive Docker appdata on source host
+      ansible.builtin.shell: |
+        tar czf /tmp/{{ item.name }}-config.tar.gz -C {{ item.docker_path }} .
+      delegate_to: "{{ source_host }}"
+      remote_user: "{{ source_user }}"
+      loop: "{{ apps }}"
+
+    - name: Fetch archives from source host to control node
+      ansible.builtin.fetch:
+        src: "/tmp/{{ item.name }}-config.tar.gz"
+        dest: "/tmp/"
+        flat: yes
+      delegate_to: "{{ source_host }}"
+      remote_user: "{{ source_user }}"
+      loop: "{{ apps }}"
+
+    - name: Copy archives to destination host
+      ansible.builtin.copy:
+        src: "/tmp/{{ item.name }}-config.tar.gz"
+        dest: "/tmp/{{ item.name }}-config.tar.gz"
+      loop: "{{ apps }}"
+
+    - name: Stop Docker containers on destination host
+      ansible.builtin.shell: docker stop {{ item.name }}
+      loop: "{{ apps }}"
+
+    - name: Clear existing appdata on destination host
+      file:
+        path: "{{ item.docker_path }}"
+        state: absent
+      loop: "{{ apps }}"
+
+    - name: Recreate appdata directories on destination host
+      file:
+        path: "{{ item.docker_path }}"
+        state: directory
+        mode: "0775"
+      loop: "{{ apps }}"
+
+    - name: Extract config archives to Docker appdata on destination host
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ item.name }}-config.tar.gz"
+        dest: "{{ item.docker_path }}"
+        remote_src: yes
+        extra_opts: [--strip-components=0]
+      loop: "{{ apps }}"
+
+    - name: Start Docker containers on destination host
+      ansible.builtin.shell: docker start {{ item.name }}
+      loop: "{{ apps }}"
+
+    - name: Clean up temporary archives
+      file:
+        path: "/tmp/{{ item.name }}-config.tar.gz"
+        state: absent
+      loop: "{{ apps }}"

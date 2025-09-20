@@ -1,6 +1,6 @@
 ---
 - name: Install Docker and Docker Compose on Debian 12
-  hosts: lxc_template
+  hosts: lxc
   become: true
 
   tasks:

@@ -3,7 +3,7 @@ name: Deploy LXC template
 on:
   workflow_call:
     inputs:
-      template-name:
+      template_name:
         description: "Name for LXC template"
         required: true
         type: string
@@ -15,6 +15,10 @@ on:
         description: "location of the base os template"
         required: true
         type: string
+      enable_docker:
+        description: "Should keyctl and nesting be enabled in the LXC"
+        required: false
+        default: "false"
       unprivileged:
         description: "should lxc be unprivileged"
         required: true
@@ -47,7 +51,8 @@ jobs:
           gateway         = "${{ vars.GATEWAY }}"
           storage         = "${{ vars.PVE_DISK_STORAGE }}"
           ostemplate      = "${{ inputs.ostemplate }}"
-          hostname        = "${{ inputs.lxc_name }}"
+          hostname        = "${{ inputs.lxc_name }}-template"
+          enable_docker    = ${{ inputs.enable_docker }}
           unprivileged    = ${{ inputs.unprivileged }}
           pm_node_name    = "${{ vars.PVE_NODE_NAME }}"
           pm_api_url      = "${{ vars.PVE_API_URL }}"
@@ -70,13 +75,12 @@ jobs:
           ssh-keyscan -H ${{ vars.PVE_NODE_IP }} >> ~/.ssh/known_hosts
       
       - name: Lookup VMID and IP for the target LXC
-        if: ${{ github.ref_name == 'main' }}
         run: |
           sleep 15
           # Lookup VMID
           VMID=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
             "pvesh get /cluster/resources --type vm --output-format yaml \
-            | awk -v target='${{ inputs.lxc_name }}' '
+            | awk -v target='${{ inputs.lxc_name }}-template' '
                 /^[[:space:]]*name:/ {
                   split(\$0, a, \": \")
                   if (a[2] == target) found=1
@@ -84,7 +88,7 @@ jobs:
                 found && /^[[:space:]]*vmid:/ {print \$2; exit}'")
 
           if [ -z "$VMID" ]; then
-            echo "ERROR: VMID not found for ${{ inputs.lxc_name }}"
+            echo "ERROR: VMID not found for ${{ inputs.lxc_name }}-template"
             exit 1
           fi
 
@@ -98,15 +102,15 @@ jobs:
       - name: Render hosts.ini
         run: |
           cat > hosts.ini <<EOF
-          [lxc_template]
-          lxc ansible_host=${LXC_IP} ansible_user=root
+          [lxc]
+          {{ inputs.lxc_name }} ansible_host=${LXC_IP} ansible_user=root
 
           [pve_host]
           pve ansible_host=${{ vars.PVE_NODE_IP }} ansible_user=root
 
           [pve_host:vars]
           vmid=${LXC_VMID}
-          template_name=${{ inputs.template-name }}
+          template_name=${{ inputs.template_name }}
           templates_dir=${{ vars.TEMPLATES_DIR }}
           EOF
 
@@ -116,12 +120,12 @@ jobs:
       - name: inject ansible pve task
         if: ${{ github.ref_name == 'main' }}
         run: |
-          echo "\n- import_playbook: ../common/dump-lxc-to-template.yaml" >> ansible/lxc-template/${{ inputs.lxc_name }}-template.yaml
+          echo "\n- import_playbook: ../common/dump-lxc-to-template.yaml" >> ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml
 
       - name: Run Ansible Playbook
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
-        run: ansible-playbook -i hosts.ini ansible/lxc-template/${{ inputs.lxc_name }}-template.yaml
+        run: ansible-playbook -i hosts.ini ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml
         
       - name: Terraform Destroy
         if: ${{ github.ref_name == 'main' || failure() }}
