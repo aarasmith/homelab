@@ -62,10 +62,16 @@
         state: directory
         mode: "0755"
 
-    - name: Download Jellyfin GPG key
-      get_url:
-        url: https://repo.jellyfin.org/jellyfin_team.gpg.key
-        dest: /etc/apt/keyrings/jellyfin.gpg
+    - name: Download Jellyfin GPG key and dearmor it
+      shell: |
+        curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key \
+        | gpg --dearmor -o /etc/apt/keyrings/jellyfin.gpg
+      args:
+        creates: /etc/apt/keyrings/jellyfin.gpg
+
+    - name: Ensure Jellyfin key has correct permissions
+      file:
+        path: /etc/apt/keyrings/jellyfin.gpg
         mode: "0644"
 
     - name: Remove legacy jellyfin.list if present
