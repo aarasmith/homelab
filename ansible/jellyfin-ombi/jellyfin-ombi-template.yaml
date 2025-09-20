@@ -1,6 +1,6 @@
 ---
 - name: Install Ombi and Jellyfin on Debian 12 (Bookworm)
-  hosts: lxc_template
+  hosts: lxc
   become: true
   vars:
     # Ombi settings
