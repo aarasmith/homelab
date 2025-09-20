@@ -1,17 +1,17 @@
 ---
-- name: Install Ombi and Jellyfin on Debian 12 (Bookworm)
+- name: Install Ombi and Jellyfin on Debian 12
   hosts: lxc
   become: true
   vars:
     # Ombi settings
-    ombi_package: "ombi"
-    ombi_key: "/etc/apt/keyrings/ombi.gpg"
+    ombi_repo: "deb https://apt.ombi.app/develop jessie main"
     ombi_repo_file: "/etc/apt/sources.list.d/ombi.list"
+    ombi_gpg_key_url: "https://apt.ombi.app/pub.key"
+    ombi_package: "ombi"
 
     # Jellyfin settings
-    jellyfin_package: "jellyfin"
     jellyfin_key: "/etc/apt/keyrings/jellyfin.gpg"
-    jellyfin_repo_file: "/etc/apt/sources.list.d/jellyfin.list"
+    jellyfin_package: "jellyfin"
 
   tasks:
     - name: Ensure prerequisites are installed
@@ -28,33 +28,25 @@
 # ------------------------
 # OMBI SETUP
 # ------------------------
-    - name: Ensure /etc/apt/keyrings exists
-      file:
-        path: /etc/apt/keyrings
-        state: directory
-        mode: "0755"
-
-    - name: Download Ombi GPG key
-      get_url:
-        url: "https://apt.ombi.app/pub.key"
-        dest: "{{ ombi_key }}"
-        mode: "0644"
-
     - name: Add Ombi apt repository
       copy:
         dest: "{{ ombi_repo_file }}"
-        content: "deb [signed-by={{ ombi_key }}] https://apt.ombi.app/develop bookworm main\n"
+        content: "{{ ombi_repo }}\n"
+        owner: root
+        group: root
         mode: "0644"
 
-    - name: Update apt cache for Ombi
-      apt:
-        update_cache: yes
+    - name: Add Ombi GPG key
+      apt_key:
+        url: "{{ ombi_gpg_key_url }}"
+        state: present
 
     - name: Install Ombi
       apt:
         name: "{{ ombi_package }}"
         state: present
-
+        update_cache: yes
+    
     - name: Ensure Ombi service is enabled and running
       systemd:
         name: ombi
@@ -62,28 +54,42 @@
         state: started
 
 # ------------------------
-# JELLYFIN SETUP
+# JELLYFIN SETUP (Bookworm repo)
 # ------------------------
+    - name: Ensure /etc/apt/keyrings exists
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
     - name: Download Jellyfin GPG key
       get_url:
-        url: "https://repo.jellyfin.org/jellyfin_team.gpg.key"
-        dest: "{{ jellyfin_key }}"
+        url: https://repo.jellyfin.org/jellyfin_team.gpg.key
+        dest: /etc/apt/keyrings/jellyfin.gpg
         mode: "0644"
+
+    - name: Remove legacy jellyfin.list if present
+      file:
+        path: /etc/apt/sources.list.d/jellyfin.list
+        state: absent
 
     - name: Add Jellyfin apt repository
       copy:
-        dest: "{{ jellyfin_repo_file }}"
-        content: "deb [signed-by={{ jellyfin_key }}] https://repo.jellyfin.org/debian bookworm main\n"
+        dest: /etc/apt/sources.list.d/jellyfin.sources
+        content: |
+          Types: deb
+          URIs: https://repo.jellyfin.org/debian
+          Suites: bookworm
+          Components: main
+          Architectures: amd64
+          Signed-By: /etc/apt/keyrings/jellyfin.gpg
         mode: "0644"
-
-    - name: Update apt cache for Jellyfin
-      apt:
-        update_cache: yes
 
     - name: Install Jellyfin
       apt:
-        name: "{{ jellyfin_package }}"
+        name: jellyfin
         state: present
+        update_cache: yes
 
     - name: Ensure Jellyfin service is enabled and running
       systemd:
