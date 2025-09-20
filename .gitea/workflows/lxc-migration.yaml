@@ -70,8 +70,8 @@ jobs:
           ${{ inputs.lxc_name }} ansible_host=${LXC_IP} ansible_user=root
 
           [lxc:vars]
-          source_host={{ inputs.source_host }}
-          source_user={{ inputs.source_user }}
+          source_host=${{ inputs.source_host }}
+          source_user=${{ inputs.source_user }}
           EOF
 
       - name: debug hosts.ini
@@ -80,4 +80,4 @@ jobs:
       - name: Run Ansible Playbook
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
-        run: ansible-playbook -i hosts.ini {{ inputs.playbook }}
+        run: ansible-playbook -i hosts.ini ${{ inputs.playbook }}
