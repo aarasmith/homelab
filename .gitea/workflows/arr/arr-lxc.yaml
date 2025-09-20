@@ -26,9 +26,19 @@ jobs:
       unprivileged: true
     secrets: inherit
   
+  post-deploy:
+    needs: deploy
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      
+      - name: sleep to allow lxc to come online
+        run: sleep 15
+      
+  
   add-mount:
     if: ${{ github.ref_name == 'main' }}
-    needs: deploy
+    needs: post-deploy
     uses: ./.gitea/workflows/lxc-ansible.yaml
     with:
       lxc_name: arr
@@ -36,7 +46,7 @@ jobs:
 
   start-containers:
     if: ${{ github.ref_name == 'main' }}
-    needs: deploy
+    needs: post-deploy
     uses: ./.gitea/workflows/lxc-ansible.yaml
     with:
       lxc_name: arr
