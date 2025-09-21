@@ -27,7 +27,7 @@ on:
 
 jobs:
   select-env:
-    uses: ./.github/workflows/configure-pve-environment.yaml
+    uses: ./.gitea/workflows/configure-pve-environment.yaml
     with:
       branch: ${{ github.ref_name }}
     secrets: inherit
