@@ -24,6 +24,7 @@ on:
         required: true
         type: string
     secrets: inherit
+  workflow_dispatch:
 
 jobs:
   select-env:
