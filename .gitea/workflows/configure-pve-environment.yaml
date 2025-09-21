@@ -29,6 +29,7 @@ on:
         value: ${{ jobs.resolve.outputs.pm_api_url }}
       pm_node_ip:
         value: ${{ jobs.resolve.outputs.pm_node_ip }}
+  workflow_dispatch:
 
 jobs:
   resolve:
