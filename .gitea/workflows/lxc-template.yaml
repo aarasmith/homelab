@@ -12,51 +12,67 @@ on:
         required: true
         type: string
       ostemplate:
-        description: "location of the base os template"
+        description: "Location of the base OS template"
         required: true
         type: string
       enable_docker:
-        description: "Should keyctl and nesting be enabled in the LXC"
+        description: "Enable keyctl/nesting in LXC"
         required: false
         default: "false"
       unprivileged:
-        description: "should lxc be unprivileged"
+        description: "Should LXC be unprivileged"
         required: true
         type: string
     secrets: inherit
 
 jobs:
+  select-env:
+    uses: ./.github/workflows/configure-pve-environment.yml
+    with:
+      branch: ${{ github.ref_name }}
+    secrets: inherit
+
   deploy:
     runs-on: ubuntu-latest
     container:
       image: ${{ vars.RUNNER_IMAGE }}
+    needs: select-env
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+      
+      - name: Resolve pm_node_name
+        id: resolve-node-name
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "pm_node_name=${{ inputs.pm_node_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "pm_node_name=${{ vars.DEV_PVE_NODE_NAME }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create credentials.auto.tfvars
         run: |
           cat > terraform/modules/lxc/credentials.auto.tfvars <<EOF
-          pm_user         = "${{ secrets.PVE_USER }}"
-          pm_password     = "${{ secrets.PVE_PASSWORD }}"
+          pm_user         = "${{ needs.select-env.outputs.pm_user }}"
+          pm_password     = "${{ needs.select-env.outputs.pm_password }}"
           lxc_password    = "${{ secrets.LXC_PASSWORD }}"
           ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
           EOF
 
       - name: Create vars.auto.tfvars
-        #note the lack of quotes around the unprivileged bool
         run: |
           cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
           gateway         = "${{ vars.GATEWAY }}"
-          storage         = "${{ vars.PVE_DISK_STORAGE }}"
+          storage         = "${{ needs.select-env.outputs.pm_disk_storage }}"
           ostemplate      = "${{ inputs.ostemplate }}"
           hostname        = "${{ inputs.lxc_name }}-template"
-          enable_docker    = ${{ inputs.enable_docker }}
+          enable_docker   = ${{ inputs.enable_docker }}
           unprivileged    = ${{ inputs.unprivileged }}
-          pm_node_name    = "${{ vars.PVE_NODE_NAME }}"
-          pm_api_url      = "${{ vars.PVE_API_URL }}"
+          pm_node_name    = "${{ steps.resolve-node-name.outputs.pm_node_name }}"
+          pm_api_url      = "${{ needs.select-env.outputs.pm_api_url }}"
           EOF
+
 
       - name: Terraform Init
         run: terraform -chdir=terraform/modules/lxc init -input=false
@@ -72,13 +88,12 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ vars.PVE_NODE_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ needs.select-env.outputs.pm_node_ip }} >> ~/.ssh/known_hosts
       
       - name: Lookup VMID and IP for the target LXC
         run: |
           sleep 15
-          # Lookup VMID
-          VMID=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
+          VMID=$(ssh -oBatchMode=yes root@${{ needs.select-env.outputs.pm_node_ip }} \
             "pvesh get /cluster/resources --type vm --output-format yaml \
             | awk -v target='${{ inputs.lxc_name }}-template' '
                 /^[[:space:]]*name:/ {
@@ -92,8 +107,7 @@ jobs:
             exit 1
           fi
 
-          # Lookup IP
-          IP=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
+          IP=$(ssh -oBatchMode=yes root@${{ needs.select-env.outputs.pm_node_ip }} \
             "pct exec $VMID ip addr show | grep -oP '(?<=inet )10\.1\.1\.\d+'")
 
           echo "LXC_VMID=$VMID" >> $GITHUB_ENV
@@ -106,7 +120,7 @@ jobs:
           ${{ inputs.lxc_name }} ansible_host=${LXC_IP} ansible_user=root
 
           [pve_host]
-          pve ansible_host=${{ vars.PVE_NODE_IP }} ansible_user=root
+          pve ansible_host=${{ needs.select-env.outputs.pm_node_ip }} ansible_user=root
 
           [pve_host:vars]
           vmid=${LXC_VMID}
