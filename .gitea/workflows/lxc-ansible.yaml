@@ -22,19 +22,25 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+      
+      - name: Scope PVE vars to current environment
+        uses: ./.gitea/actions/normalize-pve-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
 
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ vars.PVE_NODE_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${PVE_NODE_IP} >> ~/.ssh/known_hosts
       
       - name: Lookup VMID and IP for the target LXC
         run: |
           sleep 15
           # Lookup VMID
-          VMID=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
+          VMID=$(ssh -oBatchMode=yes root@${PVE_NODE_IP} \
             "pvesh get /cluster/resources --type vm --output-format yaml \
             | awk -v target='${{ inputs.lxc_name }}' '
                 /^[[:space:]]*name:/ {
@@ -49,7 +55,7 @@ jobs:
           fi
 
           # Lookup IP
-          IP=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
+          IP=$(ssh -oBatchMode=yes root@${PVE_NODE_IP} \
             "pct exec $VMID ip addr show | grep -oP '(?<=inet )10\.1\.1\.\d+'")
 
           echo "LXC_VMID=$VMID" >> $GITHUB_ENV
@@ -62,7 +68,7 @@ jobs:
           ${{ inputs.lxc_name }} ansible_host=${LXC_IP} ansible_user=root
 
           [pve_host]
-          pve ansible_host=${{ vars.PVE_NODE_IP }} ansible_user=root
+          pve ansible_host=${PVE_NODE_IP} ansible_user=root
 
           [pve_host:vars]
           vmid=${LXC_VMID}

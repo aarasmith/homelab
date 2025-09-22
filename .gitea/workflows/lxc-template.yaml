@@ -35,46 +35,33 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
       
-      - name: Set variables based on environment
-        id: env-setup
-        run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "PVE_USER=${{ secrets.PVE_USER }}" >> $GITHUB_ENV
-            echo "PVE_PASSWORD=${{ secrets.PVE_PASSWORD }}" >> $GITHUB_ENV
-            echo "PVE_DISK_STORAGE=${{ vars.PVE_DISK_STORAGE }}" >> $GITHUB_ENV
-            echo "PVE_NODE_NAME=${{ vars.PVE_NODE_NAME }}" >> $GITHUB_ENV
-            echo "PVE_API_URL=${{ vars.PVE_API_URL }}" >> $GITHUB_ENV
-            echo "PVE_NODE_IP=${{ vars.PVE_NODE_IP }}" >> $GITHUB_ENV
-          else
-            echo "PVE_USER=${{ secrets.DEV_PVE_USER }}" >> $GITHUB_ENV
-            echo "PVE_PASSWORD=${{ secrets.DEV_PVE_PASSWORD }}" >> $GITHUB_ENV
-            echo "PVE_DISK_STORAGE=${{ vars.DEV_PVE_DISK_STORAGE }}" >> $GITHUB_ENV
-            echo "PVE_NODE_NAME=${{ vars.DEV_PVE_NODE_NAME }}" >> $GITHUB_ENV
-            echo "PVE_API_URL=${{ vars.DEV_PVE_API_URL }}" >> $GITHUB_ENV
-            echo "PVE_NODE_IP=${{ vars.DEV_PVE_NODE_IP }}" >> $GITHUB_ENV
-          fi
+      - name: Scope PVE vars to current environment
+        uses: ./.gitea/actions/normalize-pve-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
 
-      - name: Create credentials.auto.tfvars
+      - name: Create pve-provider.auto.tfvars
         run: |
-          cat > terraform/modules/lxc/credentials.auto.tfvars <<EOF
+          cat > terraform/modules/lxc/pve-provider.auto.tfvars <<EOF
           pm_user         = "${PVE_USER}"
           pm_password     = "${PVE_PASSWORD}"
-          lxc_password    = "${{ secrets.LXC_PASSWORD }}"
-          ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
+          pm_api_url      = "${PVE_API_URL}"
           EOF
 
       - name: Create vars.auto.tfvars
-        #note the lack of quotes around the unprivileged bool
+        #note the lack of quotes around the bool types
         run: |
           cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
+          lxc_password    = "${{ secrets.LXC_PASSWORD }}"
+          ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
           gateway         = "${{ vars.GATEWAY }}"
           storage         = "${PVE_DISK_STORAGE}"
           ostemplate      = "${{ inputs.ostemplate }}"
           hostname        = "${{ inputs.lxc_name }}-template"
           enable_docker   = ${{ inputs.enable_docker }}
           unprivileged    = ${{ inputs.unprivileged }}
-          pm_node_name    = "${PVE_NODE_NAME}"
-          pm_api_url      = "${PVE_API_URL}"
+          target_node     = "${PVE_DEFAULT_TARGET_NODE}"
           EOF
 
       - name: Terraform Init
@@ -93,7 +80,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${PVE_NODE_IP} >> ~/.ssh/known_hosts
       
-      - name: Lookup VMID and IP for the target LXC
+      - name: Lookup VMID and IP for the target LXC-template
         run: |
           sleep 15
           # Lookup VMID
@@ -130,7 +117,7 @@ jobs:
           [pve_host:vars]
           vmid=${LXC_VMID}
           template_name=${{ inputs.template_name }}
-          templates_dir=${{ vars.TEMPLATES_DIR }}
+          templates_dir=${PVE_TEMPLATES_DIR}
           EOF
 
       - name: debug hosts.ini

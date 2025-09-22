@@ -2,7 +2,7 @@ resource "proxmox_lxc" "template" {
   hostname     = var.hostname
   ostemplate   = var.ostemplate
   vmid         = var.vmid
-  target_node  = var.pm_node_name
+  target_node  = var.target_node
   password     = var.lxc_password
   start        = true
   ssh_public_keys = var.ssh_public_key
