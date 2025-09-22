@@ -14,7 +14,7 @@ on:
 
 jobs:
   create-template:
-    uses: ./.gitea/workflows/lxc-template.yaml
+    uses: ./.gitea/workflows/common/lxc-template.yaml
     with:
       lxc_name: arr
       template_name: arr-debian12

@@ -12,7 +12,7 @@ on:
 
 jobs:
   deploy:
-    uses: ./.gitea/workflows/lxc-template.yaml
+    uses: ./.gitea/workflows/common/lxc-template.yaml
     with:
       lxc_name: postgres17
       template_name: postgres17-debian12

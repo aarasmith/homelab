@@ -12,7 +12,7 @@ on:
 
 jobs:
   deploy:
-    uses: ./.gitea/workflows/lxc-terraform.yaml
+    uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
       target_node: "mother"
       lxc_name: arr
@@ -38,7 +38,7 @@ jobs:
   add-mount:
     if: ${{ github.ref_name == 'main' }}
     needs: post-deploy
-    uses: ./.gitea/workflows/lxc-ansible.yaml
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: arr
       playbook: ansible/common/add-unprivileged-nfs-mount.yaml
@@ -47,7 +47,7 @@ jobs:
   start-containers:
     if: ${{ github.ref_name == 'main' }}
     needs: post-deploy
-    uses: ./.gitea/workflows/lxc-ansible.yaml
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: arr
       playbook: ansible/common/start-docker-containers.yaml
