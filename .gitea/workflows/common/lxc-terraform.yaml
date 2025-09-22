@@ -59,6 +59,12 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
       
+      - name: Scope AWS vars to current environment
+        uses: ./.gitea/actions/normalize-aws-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+      
       - name: Scope PVE vars to current environment
         uses: ./.gitea/actions/normalize-pve-env
         with:
@@ -95,16 +101,10 @@ jobs:
       
       - name: Generate backend.tf
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            BUCKET="${{ vars.AWS_TF_BACKEND_BUCKET }}"
-          else
-            BUCKET="${{ vars.AWS_TF_BACKEND_BUCKET_DEV }}"
-          fi
-
           cat > terraform/modules/lxc/backend.tf <<EOF
           terraform {
             backend "s3" {
-              bucket = "$BUCKET"
+              bucket = "${AWS_TF_BACKEND_BUCKET}"
               region = "${{ vars.AWS_REGION }}"
               key    = "${{ inputs.lxc_name }}.tfstate"
             }
