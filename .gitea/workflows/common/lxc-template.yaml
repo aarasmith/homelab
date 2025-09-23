@@ -49,8 +49,8 @@ jobs:
           ssh-keyscan -H ${PVE_NODE_IP} >> ~/.ssh/known_hosts
 
       - name: Cleanup any already existing LXC template
-        #only run if in a feature branch
-        if: ${{ !contains(fromJSON('["main","dev"]'), github.ref_name) }}
+        #only run if in dev or a feature branch. FB's leave behind the lxc for verification. Dev will cleanup any FB leftovers
+        if: ${{ !contains(fromJSON('["main"]'), github.ref_name) }}
         uses: ./.gitea/actions/cleanup-old-lxc-templates
         with:
           lxc_name: ${{ inputs.lxc_name }}-template
