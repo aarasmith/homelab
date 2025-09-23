@@ -131,11 +131,11 @@ jobs:
         if: ${{ !contains(fromJSON('["main","dev"]'), github.ref_name) }}
         run: |
           ssh -oBatchMode=yes root@${PVE_NODE_IP} "
-            if pct status $VMID | grep -q 'status: running'; then
-              echo 'Stopping container $VMID...'
-              pct stop $VMID
+            if pct status ${VMID} | grep -q 'status: running'; then
+              echo 'Stopping container ${VMID}...'
+              pct stop ${VMID}
             else
-              echo 'Container $VMID is already stopped.'
+              echo 'Container ${VMID} is already stopped.'
             fi
           "
 
