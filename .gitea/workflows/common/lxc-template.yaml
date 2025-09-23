@@ -54,7 +54,7 @@ jobs:
         uses: ./.gitea/actions/cleanup-old-lxc-templates
         with:
           lxc_name: ${{ inputs.lxc_name }}-template
-          pve_node_ip: ${{ needs.select-env.outputs.pm_node_ip }}
+          pve_node_ip: ${PVE_NODE_IP}
 
       - name: Create pve-provider.auto.tfvars
         run: |
