@@ -41,6 +41,21 @@ jobs:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
 
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" | base64 --decode > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${PVE_NODE_IP} >> ~/.ssh/known_hosts
+
+      - name: Cleanup any already existing LXC template
+        #only run if in a feature branch
+        if: ${{ !contains(fromJSON('["main","dev"]'), github.ref_name) }}
+        uses: ./.gitea/actions/cleanup-old-lxc-templates
+        with:
+          lxc_name: ${{ inputs.lxc_name }}-template
+          pve_node_ip: ${{ needs.select-env.outputs.pm_node_ip }}
+
       - name: Create pve-provider.auto.tfvars
         run: |
           cat > terraform/modules/lxc/pve-provider.auto.tfvars <<EOF
@@ -72,13 +87,6 @@ jobs:
 
       - name: Terraform Apply
         run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" | base64 --decode > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${PVE_NODE_IP} >> ~/.ssh/known_hosts
       
       - name: Lookup LXC VMID and IP
         uses: ./.github/actions/lookup-lxc
@@ -117,3 +125,17 @@ jobs:
       - name: Terraform Destroy
         if: ${{ github.ref_name == 'main' || failure() }}
         run: terraform -chdir=terraform/modules/lxc destroy -auto-approve -input=false
+      
+      - name: Stop LXC container
+        #if not destroying, then stop the container
+        if: ${{ !contains(fromJSON('["main","dev"]'), github.ref_name) }}
+        run: |
+          ssh -oBatchMode=yes root@${PVE_NODE_IP} "
+            if pct status $VMID | grep -q 'status: running'; then
+              echo 'Stopping container $VMID...'
+              pct stop $VMID
+            else
+              echo 'Container $VMID is already stopped.'
+            fi
+          "
+
