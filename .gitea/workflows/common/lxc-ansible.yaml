@@ -37,7 +37,7 @@ jobs:
           ssh-keyscan -H ${PVE_NODE_IP} >> ~/.ssh/known_hosts
       
       - name: Lookup LXC VMID and IP
-        uses: ./.github/actions/lookup-lxc
+        uses: ./.github/actions/lookup-lxc-vmid-ip
         with:
           pve_node_ip: ${PVE_NODE_IP}
           lxc_name: "${{ inputs.lxc_name }}"
