@@ -11,8 +11,8 @@ on:
         description: "Hostname of the LXC"
         required: true
         type: string
-      ostemplate:
-        description: "location of the base os template"
+      base_template:
+        description: "name of the base os template"
         required: true
         type: string
       vmid:
@@ -87,9 +87,9 @@ jobs:
           ssh_public_key = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
           gateway        = "${{ vars.GATEWAY }}"
           storage        = "${PVE_DISK_STORAGE}"
-          target_node    = "${{ inputs.target_node }}"
+          target_node    = "${{ github.ref_name == 'main' && inputs.target_node || env.PVE_DEFAULT_TARGET_NODE }}"
           hostname       = "${{ inputs.lxc_name }}"
-          ostemplate     = "${{ inputs.ostemplate }}"
+          ostemplate     = "${{ (github.ref_name == 'main' && 'truenas' || 'local') }}:vztmpl/${{ inputs.base_template }}"
           vmid           = "${{ inputs.vmid }}"
           ip             = "${{ inputs.ip }}"
           memory         = ${{ inputs.memory }}
@@ -121,6 +121,6 @@ jobs:
         run: terraform -chdir=terraform/modules/lxc plan -out=tfplan -input=false
 
       - name: Terraform Apply
-        if: ${{ github.ref_name == 'main' }}
+        if: ${{ !contains(fromJSON('["main","dev"]'), github.ref_name) }}
         id: tfout
         run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan

@@ -16,7 +16,7 @@ jobs:
     with:
       lxc_name: jellyfin-ombi
       template_name: jellyfin-ombi-debian12
-      ostemplate: truenas:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst
+      base_template: debian-12-standard_12.12-1_amd64.tar.zst
       enable_docker: false
       unprivileged: true
     secrets: inherit

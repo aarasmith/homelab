@@ -16,7 +16,7 @@ jobs:
     with:
       target_node: "mother"
       lxc_name: arr
-      ostemplate: truenas:vztmpl/arr-debian12.tar.gz
+      base_template: arr-debian12.tar.gz
       vmid: "301"
       ip: "10.1.1.20/24"
       memory: "2048"
@@ -36,7 +36,7 @@ jobs:
         run: sleep 15
        
   add-mount:
-    if: ${{ github.ref_name == 'main' }}
+    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     needs: post-deploy
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
@@ -45,7 +45,7 @@ jobs:
     secrets: inherit
 
   start-containers:
-    if: ${{ github.ref_name == 'main' }}
+    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     needs: post-deploy
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:

@@ -11,7 +11,7 @@ on:
         description: "Name of the lxc to look up"
         required: true
         type: string
-      ostemplate:
+      base_template:
         description: "location of the base os template"
         required: true
         type: string
@@ -72,7 +72,7 @@ jobs:
           ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
           gateway         = "${{ vars.GATEWAY }}"
           storage         = "${PVE_DISK_STORAGE}"
-          ostemplate      = "${{ inputs.ostemplate }}"
+          ostemplate      = "${{ (github.ref_name == 'main' && 'truenas' || 'local') }}:vztmpl/${{ inputs.base_template }}"
           hostname        = "${{ inputs.lxc_name }}-template"
           enable_docker   = ${{ inputs.enable_docker }}
           unprivileged    = ${{ inputs.unprivileged }}
@@ -113,7 +113,7 @@ jobs:
         run: cat hosts.ini
 
       - name: inject ansible pve task
-        if: ${{ github.ref_name == 'main' }}
+        if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
         run: |
           echo "\n- import_playbook: ../common/dump-lxc-to-template.yaml" >> ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml
 
@@ -123,7 +123,7 @@ jobs:
         run: ansible-playbook -i hosts.ini ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml
         
       - name: Terraform Destroy
-        if: ${{ github.ref_name == 'main' || failure() }}
+        if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || failure() }}
         run: terraform -chdir=terraform/modules/lxc destroy -auto-approve -input=false
       
       - name: Stop LXC container

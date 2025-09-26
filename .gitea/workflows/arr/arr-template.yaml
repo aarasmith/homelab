@@ -18,7 +18,7 @@ jobs:
     with:
       lxc_name: arr
       template_name: arr-debian12
-      ostemplate: truenas:vztmpl/docker-debian12.tar.gz
+      base_template: docker-debian12.tar.gz
       enable_docker: true
       unprivileged: true
     secrets: inherit
