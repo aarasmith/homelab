@@ -1,0 +1,7 @@
+users:
+  {{ AUTHELIA_ADMIN_ID }}:
+    displayname: {{ AUTHELIA_ADMIN_NAME }}
+    password: {{ AUTHELIA_ADMIN_PASS }}
+    email: {{ AUTHELIA_ADMIN_EMAIL }}
+    groups:
+      - admins

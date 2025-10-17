@@ -118,9 +118,11 @@ jobs:
           echo "\n- import_playbook: ../common/dump-lxc-to-template.yaml" >> ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml
 
       - name: Run Ansible Playbook
+        shell: bash
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
-        run: ansible-playbook -i hosts.ini ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: ansible-playbook -i hosts.ini ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")
         
       - name: Terraform Destroy
         if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || failure() }}

@@ -1,0 +1,13 @@
+http:
+  middlewares:
+
+    chain-authelia:
+      chain:
+        middlewares:
+          - traefik-bouncer # leave this out if you are not using CrowdSec
+          - rate-limit
+          - https-redirectscheme
+          - secure-headers
+          - authelia
+          - compress
+          - ipwhitelist
