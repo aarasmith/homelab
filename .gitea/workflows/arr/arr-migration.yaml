@@ -5,7 +5,7 @@ on:
 
 jobs:
   migration:
-    uses: ./.gitea/workflows/lxc-migration.yaml
+    uses: ./.gitea/workflows/common/lxc-migration.yaml
     with:
       lxc_name: arr
       playbook: ansible/arr/arr-migration.yaml

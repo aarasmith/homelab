@@ -21,7 +21,7 @@
           - lsb-release
         state: present
 
-    - name: Add Docker’s official GPG key
+    - name: Add Docker's official GPG key
       ansible.builtin.apt_key:
         url: https://download.docker.com/linux/debian/gpg
         state: present

@@ -1,0 +1,82 @@
+http:
+  routers:
+    hdro-router:
+      entryPoints:
+        - "http"
+        - "https"
+      rule: "Host(`hdro.{{ DOMAIN }}`)"
+      service: hdro-service
+      middlewares:
+        - chain-authelia@file
+    jellyfin-router:
+      entryPoints:
+        - "http"
+        - "https"
+      rule: "Host(`jellyfin.{{ DOMAIN }}`)"
+      service: jellyfin-service
+      middlewares:
+        - chain-authelia@file
+    wiki-router:
+      entryPoints:
+        - "http"
+        - "https"
+      rule: "Host(`wiki.{{ DOMAIN }}`)"
+      service: wiki-service
+      middlewares:
+        - chain-authelia@file
+    git-router:
+      entryPoints:
+        - "http"
+        - "https"
+      rule: "Host(`git.{{ DOMAIN }}`)"
+      service: git-service
+      middlewares:
+        - chain-authelia@file
+    dns-router:
+      entryPoints:
+        - "http"
+        - "https"
+      rule: "Host(`dns.{{ DOMAIN }}`)"
+      service: dns-service
+      middlewares:
+        - chain-authelia@file
+
+  services:
+    hdro-service:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.1.206:8080"
+    jellyfin-service:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.1.63:8096"
+    wiki-service:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.1.64:3000"
+    git-service:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.1.65:3000"
+    dns-service:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.1.5:5380"
+
+tcp:
+  routers:
+    git-ssh-router:
+      entryPoints:
+        - "ssh"
+      rule: "HostSNI(`*`)"
+      service: git-ssh-service
+      middlewares:
+        - allow-ssh@file
+
+  services:
+    git-ssh-service:
+      loadBalancer:
+        servers:
+          - address: "10.1.1.65:22"
+  
+

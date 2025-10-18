@@ -1,0 +1,144 @@
+name: Deploy LXC template
+
+on:
+  workflow_call:
+    inputs:
+      template_name:
+        description: "Name for LXC template"
+        required: true
+        type: string
+      lxc_name:
+        description: "Name of the lxc to look up"
+        required: true
+        type: string
+      base_template:
+        description: "location of the base os template"
+        required: true
+        type: string
+      enable_docker:
+        description: "Should keyctl and nesting be enabled in the LXC"
+        required: false
+        default: "false"
+      unprivileged:
+        description: "should lxc be unprivileged"
+        required: true
+        type: string
+    secrets: inherit
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      
+      - name: Scope PVE vars to current environment
+        uses: ./.gitea/actions/normalize-pve-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" | base64 --decode > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${PVE_NODE_IP} >> ~/.ssh/known_hosts
+
+      - name: Cleanup any already existing LXC template
+        #only run if in dev or a feature branch. FB's leave behind the lxc for verification. Dev will cleanup any FB leftovers
+        if: ${{ !contains(fromJSON('["main"]'), github.ref_name) }}
+        uses: ./.gitea/actions/cleanup-old-lxc-templates
+        with:
+          lxc_name: ${{ inputs.lxc_name }}-template
+          pve_node_ip: ${PVE_NODE_IP}
+
+      - name: Create pve-provider.auto.tfvars
+        run: |
+          cat > terraform/modules/lxc/pve-provider.auto.tfvars <<EOF
+          pm_user         = "${PVE_USER}"
+          pm_password     = "${PVE_PASSWORD}"
+          pm_api_url      = "${PVE_API_URL}"
+          EOF
+
+      - name: Create vars.auto.tfvars
+        #note the lack of quotes around the bool types
+        run: |
+          cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
+          lxc_password    = "${{ secrets.LXC_PASSWORD }}"
+          ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
+          gateway         = "${{ vars.GATEWAY }}"
+          storage         = "${PVE_DISK_STORAGE}"
+          ostemplate      = "${{ (github.ref_name == 'main' && 'truenas' || 'local') }}:vztmpl/${{ inputs.base_template }}"
+          hostname        = "${{ inputs.lxc_name }}-template"
+          enable_docker   = ${{ inputs.enable_docker }}
+          unprivileged    = ${{ inputs.unprivileged }}
+          target_node     = "${PVE_DEFAULT_TARGET_NODE}"
+          EOF
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform/modules/lxc init -input=false
+
+      - name: Terraform Plan
+        run: terraform -chdir=terraform/modules/lxc plan -out=tfplan -input=false
+
+      - name: Terraform Apply
+        run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan
+      
+      - name: Lookup LXC VMID and IP
+        uses: ./.gitea/actions/lookup-lxc-vmid-ip
+        with:
+          pve_node_ip: ${PVE_NODE_IP}
+          lxc_name: "${{ inputs.lxc_name }}-template"
+
+      - name: Render hosts.ini
+        run: |
+          cat > hosts.ini <<EOF
+          [lxc]
+          ${{ inputs.lxc_name }} ansible_host=${LXC_IP} ansible_user=root
+
+          [pve_host]
+          pve ansible_host=${PVE_NODE_IP} ansible_user=root
+
+          [pve_host:vars]
+          vmid=${LXC_VMID}
+          template_name=${{ inputs.template_name }}
+          templates_dir=${PVE_TEMPLATES_DIR}
+          EOF
+
+      - name: debug hosts.ini
+        run: cat hosts.ini
+
+      - name: inject ansible pve task
+        if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+        run: |
+          echo "\n- import_playbook: ../common/dump-lxc-to-template.yaml" >> ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml
+
+      - name: Run Ansible Playbook
+        shell: bash
+        env:
+          ANSIBLE_CONFIG: ansible/ansible.cfg
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: ansible-playbook -i hosts.ini ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")
+        
+      - name: Terraform Destroy
+        if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || failure() }}
+        run: terraform -chdir=terraform/modules/lxc destroy -auto-approve -input=false
+      
+      - name: Stop LXC container
+        #if not destroying, then stop the container
+        if: ${{ !contains(fromJSON('["main","dev"]'), github.ref_name) }}
+        run: |
+          ssh -oBatchMode=yes root@${PVE_NODE_IP} "
+            if pct status ${LXC_VMID} | grep -q 'status: running'; then
+              echo 'Stopping container ${LXC_VMID}...'
+              pct stop ${LXC_VMID}
+            else
+              echo 'Container ${LXC_VMID} is already stopped.'
+            fi
+          "
+

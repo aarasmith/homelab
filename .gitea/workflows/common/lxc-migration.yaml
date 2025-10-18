@@ -30,38 +30,25 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+      
+      - name: Scope PVE vars to current environment
+        uses: ./.gitea/actions/normalize-pve-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
 
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" | base64 --decode > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ vars.PVE_NODE_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${PVE_NODE_IP} >> ~/.ssh/known_hosts
       
-      - name: Lookup VMID and IP for the target LXC
-        run: |
-          sleep 15
-          # Lookup VMID
-          VMID=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
-            "pvesh get /cluster/resources --type vm --output-format yaml \
-            | awk -v target='${{ inputs.lxc_name }}' '
-                /^[[:space:]]*name:/ {
-                  split(\$0, a, \": \")
-                  if (a[2] == target) found=1
-                }
-                found && /^[[:space:]]*vmid:/ {print \$2; exit}'")
-
-          if [ -z "$VMID" ]; then
-            echo "ERROR: VMID not found for ${{ inputs.lxc_name }}"
-            exit 1
-          fi
-
-          # Lookup IP
-          IP=$(ssh -oBatchMode=yes root@${{ vars.PVE_NODE_IP }} \
-            "pct exec $VMID ip addr show | grep -oP '(?<=inet )10\.1\.1\.\d+'")
-
-          echo "LXC_VMID=$VMID" >> $GITHUB_ENV
-          echo "LXC_IP=$IP" >> $GITHUB_ENV
+      - name: Lookup LXC VMID and IP
+        uses: ./.gitea/actions/lookup-lxc-vmid-ip
+        with:
+          pve_node_ip: ${PVE_NODE_IP}
+          lxc_name: "${{ inputs.lxc_name }}"
 
       - name: Render hosts.ini
         run: |
@@ -78,6 +65,8 @@ jobs:
         run: cat hosts.ini
 
       - name: Run Ansible Playbook
+        shell: bash
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
-        run: ansible-playbook -i hosts.ini ${{ inputs.playbook }}
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: ansible-playbook -i hosts.ini ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")

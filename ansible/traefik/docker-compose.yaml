@@ -1,0 +1,234 @@
+version: '3'
+
+networks:
+  proxy:
+    name: proxy
+  socket_proxy:
+    name: socket_proxy
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.91.0/24
+
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --configFile=/rules/traefik-static-config.yaml
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+      - socket_proxy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "2222:2222"
+    environment:
+      - CF_API_EMAIL=$CF_EMAIL
+      - CF_API_KEY=$CF_API_KEY
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /docker/logs/traefik:/logs
+      - /docker/appdata/traefik/rules:/rules
+      - /docker/appdata/traefik/data/acme.json:/acme.json
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.entrypoints=https"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.$DOMAIN`)"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.routers.traefik.tls.certresolver=cloudflare"
+      - "traefik.http.routers.traefik.tls.domains[0].main=$DOMAIN"
+      - "traefik.http.routers.traefik.tls.domains[0].sans=*.$DOMAIN"
+      - "traefik.http.routers.traefik.service=api@internal"
+
+  crowdsec:
+    image: crowdsecurity/crowdsec
+    container_name: crowdsec
+    networks:
+      - proxy
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "8080:8080"
+      # - "6060:6060" # For metrics export to Prometheus database.
+      # - "$ZEROTIER_IP_WEBSERVER:$CROWDSEC_PROMETHEUS_EXPORT:6060" # If you don't use ZeroTier remove use just $CROWDSEC_PROMETHEUS_EXPORT:6060
+    environment:
+      COLLECTIONS: "crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/iptables crowdsecurity/linux crowdsecurity/sshd"
+      GID: "1001"
+      CUSTOM_HOSTNAME: crowdsec
+    volumes:
+      - /docker/logs:/logs:ro
+      - /var/log:/var/log:ro
+      - /docker/appdata/crowdsec/data:/var/lib/crowdsec/data
+      - /docker/appdata/crowdsec/config:/etc/crowdsec
+  
+  cloudflare-bouncer:
+    networks:
+      - proxy
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+    image: crowdsecurity/cloudflare-bouncer
+    container_name: cloudflare-bouncer
+    volumes:
+      - /docker/appdata/cloudflare-bouncer/cfg.yaml:/etc/crowdsec/bouncers/crowdsec-cloudflare-bouncer.yaml
+
+  traefik-bouncer:
+    networks:
+      - proxy
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+    image: fbonalair/traefik-crowdsec-bouncer
+    container_name: traefik-bouncer
+    environment:
+      GIN_MODE: release # default is debug (more logs)
+      CROWDSEC_BOUNCER_API_KEY: $CROWDSEC_BOUNCER_TRAEFIK_API_KEY # sudo docker exec crowdsec cscli bouncers add traefik-bouncer
+      CROWDSEC_AGENT_HOST: crowdsec:8080 # CrowdSec host and port
+      CROWDSEC_BOUNCER_LOG_LEVEL: 2 # https://pkg.go.dev/github.com/rs/zerolog#readme-leveled-logging
+
+  authelia:
+    container_name: authelia
+    image: authelia/authelia:latest
+    restart: always
+    depends_on:
+      authelia_postgres:
+        condition: service_healthy
+    networks:
+      - proxy
+    volumes:
+      - /docker/appdata/authelia:/config
+      - /docker/logs/authelia:/var/log/authelia
+    environment:
+      - TZ=$TZ
+    labels:
+      - "traefik.enable=true"
+      ## HTTP Routers
+      - "traefik.http.routers.authelia-secure.entrypoints=https"
+      - "traefik.http.routers.authelia-secure.tls=true"
+      - "traefik.http.routers.authelia-secure.tls.certresolver=cloudflare"
+      - "traefik.http.routers.authelia-secure.rule=Host(`auth.$DOMAIN`)"
+      ## Middlewares
+      - "traefik.http.routers.authelia-secure.middlewares=chain-authelia@file"
+      ## HTTP Services
+      - "traefik.http.routers.authelia-secure.service=authelia-secure"
+      - "traefik.http.services.authelia-secure.loadbalancer.server.port=9091"
+      - "traefik.http.routers.authelia-secure.tls.domains[0].sans=*.$DOMAIN"
+      - "traefik.http.routers.authelia-secure.tls.domains[0].main=$DOMAIN"
+
+  authelia_postgres:
+    image: docker.io/library/postgres:18-alpine
+    container_name: authelia_postgres
+    networks:
+      - proxy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - authelia_database:/var/lib/postgresql
+    environment:
+      POSTGRES_PASSWORD: ${AUTHELIA_PG_PASS}
+      POSTGRES_USER: authelia
+      POSTGRES_DB: authelia
+
+  authelia_redis:
+    image: docker.io/library/redis:alpine
+    container_name: authelia_redis
+    networks:
+      - proxy
+    command:
+      - /bin/sh
+      - -c
+      # - Double dollars, so that the variable is not expanded by Docker Compose
+      # - Surround by quotes, so that the shell does not split the password
+      # - The ${variable:?message} syntax causes shell to exit with a non-zero
+      #   code and print a message, when the variable is not set or empty
+      - redis-server --requirepass "$${AUTHELIA_PG_PASS}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    volumes:
+      - authelia_redis:/data
+
+  socket-proxy:
+    container_name: socket-proxy
+    image: tecnativa/docker-socket-proxy
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      socket_proxy:
+        ipv4_address: 192.168.91.254 # You can specify a static IP
+    privileged: false # true for VM. False for unprivileged LXC container.
+    ports:
+    - "127.0.0.1:2375:2375" # Port 2375 should only ever get exposed to the internal network
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    environment:
+      - LOG_LEVEL=info # debug,info,notice,warning,err,crit,alert,emerg
+      ## Variables match the URL prefix (i.e. AUTH blocks access to /auth/* parts of the API, etc.).
+      # 0 to revoke access.
+      # 1 to grant access.
+      ## Granted by Default
+      - EVENTS=1
+      - PING=1
+      - VERSION=1
+      ## Revoked by Default
+      # Security critical
+      - AUTH=0
+      - SECRETS=0
+      - POST=0 # Watchtower
+      # Not always needed
+      - BUILD=0
+      - COMMIT=0
+      - CONFIGS=0
+      - CONTAINERS=1 # Traefik, portainer, etc.
+      - DISTRIBUTION=0
+      - EXEC=0 #vscode for authelia user_management.py
+      - IMAGES=0 # Portainer
+      - INFO=0 # Portainer
+      - NETWORKS=0 # Portainer
+      - NODES=0
+      - PLUGINS=0
+      - SERVICES=0 # Portainer
+      - SESSION=0
+      - SWARM=0
+      - SYSTEM=0
+      - TASKS=0 # Portainer
+      - VOLUMES=0 # Portainer
+
+  whoami:
+    image: traefik/whoami
+    container_name: whoami
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - proxy
+    environment:
+      - TZ=$TZ
+    labels:
+      - "traefik.enable=true"
+      ## HTTP Routers
+      - "traefik.http.routers.whoami.rule=Host(`whoami.$DOMAIN`)"
+      - "traefik.http.routers.whoami.entrypoints=http,https"
+      - "traefik.http.routers.whoami.tls=true"
+      - "traefik.http.routers.whoami.tls.certresolver=cloudflare"
+
+volumes:
+  authelia_database:
+    driver: local
+  authelia_redis:
+    driver: local

@@ -3,7 +3,7 @@ name: Deploy LXC template
 on:
   workflow_call:
     inputs:
-      pm_node_name:
+      target_node:
         description: "Name for PVE node to deploy on"
         required: true
         type: string
@@ -11,8 +11,8 @@ on:
         description: "Hostname of the LXC"
         required: true
         type: string
-      ostemplate:
-        description: "location of the base os template"
+      base_template:
+        description: "name of the base os template"
         required: true
         type: string
       vmid:
@@ -58,27 +58,38 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+      
+      - name: Scope AWS vars to current environment
+        uses: ./.gitea/actions/normalize-aws-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+      
+      - name: Scope PVE vars to current environment
+        uses: ./.gitea/actions/normalize-pve-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
 
-      - name: Create credentials.auto.tfvars
+      - name: Create pve-provider.auto.tfvars
         run: |
-          cat > terraform/modules/lxc/credentials.auto.tfvars <<EOF
-          pm_user         = "${{ secrets.PVE_USER }}"
-          pm_password     = "${{ secrets.PVE_PASSWORD }}"
-          lxc_password    = "${{ secrets.LXC_PASSWORD }}"
-          ssh_public_key  = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
+          cat > terraform/modules/lxc/pve-provider.auto.tfvars <<EOF
+          pm_user         = "${PVE_USER}"
+          pm_password     = "${PVE_PASSWORD}"
+          pm_api_url      = "${PVE_API_URL}"
           EOF
       
       - name: Create vars.auto.tfvars
         #note the unquoted variables (numeric/bool)
         run: |
           cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
+          lxc_password   = "${{ secrets.LXC_PASSWORD }}"
+          ssh_public_key = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
           gateway        = "${{ vars.GATEWAY }}"
-          storage        = "${{ vars.PVE_DISK_STORAGE }}"
-          pm_api_url     = "${{ vars.PVE_API_URL }}"
-
-          pm_node_name   = "${{ inputs.pm_node_name }}"
+          storage        = "${PVE_DISK_STORAGE}"
+          target_node    = "${{ github.ref_name == 'main' && inputs.target_node || env.PVE_DEFAULT_TARGET_NODE }}"
           hostname       = "${{ inputs.lxc_name }}"
-          ostemplate     = "${{ inputs.ostemplate }}"
+          ostemplate     = "${{ (github.ref_name == 'main' && 'truenas' || 'local') }}:vztmpl/${{ inputs.base_template }}"
           vmid           = "${{ inputs.vmid }}"
           ip             = "${{ inputs.ip }}"
           memory         = ${{ inputs.memory }}
@@ -93,7 +104,7 @@ jobs:
           cat > terraform/modules/lxc/backend.tf <<EOF
           terraform {
             backend "s3" {
-              bucket = "${{ vars.AWS_TF_BACKEND_BUCKET }}"
+              bucket = "${AWS_TF_BACKEND_BUCKET}"
               region = "${{ vars.AWS_REGION }}"
               key    = "${{ inputs.lxc_name }}.tfstate"
             }
@@ -110,6 +121,6 @@ jobs:
         run: terraform -chdir=terraform/modules/lxc plan -out=tfplan -input=false
 
       - name: Terraform Apply
-        if: ${{ github.ref_name == 'main' }}
+        if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
         id: tfout
         run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan

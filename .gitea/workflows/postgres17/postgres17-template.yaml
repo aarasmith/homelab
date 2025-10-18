@@ -12,10 +12,10 @@ on:
 
 jobs:
   deploy:
-    uses: ./.gitea/workflows/lxc-template.yaml
+    uses: ./.gitea/workflows/common/lxc-template.yaml
     with:
       lxc_name: postgres17
       template_name: postgres17-debian12
-      ostemplate: truenas:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst
+      base_template: debian-12-standard_12.12-1_amd64.tar.zst
       unprivileged: true
     secrets: inherit

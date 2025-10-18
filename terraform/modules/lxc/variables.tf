@@ -14,7 +14,7 @@ variable "vmid" {
   default = null
 }
 
-variable "pm_node_name" {
+variable "target_node" {
   type        = string
   description = "The Proxmox node to deploy the container on"
 }

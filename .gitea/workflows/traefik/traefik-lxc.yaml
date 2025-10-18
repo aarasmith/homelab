@@ -1,12 +1,13 @@
-name: Arr LXC CI/CD
+name: Traefik LXC CI/CD
 
 on:
   push:
     branches:
       - main
+      - dev
       - "feature/**"
     paths:
-      - ".gitea/workflows/arr/arr-lxc.yaml"
+      - ".gitea/workflows/traefik/traefik-lxc.yaml"
       - ".gitea/workflows/lxc-terraform.yaml"
   workflow_dispatch:
 
@@ -15,10 +16,10 @@ jobs:
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
       target_node: "mother"
-      lxc_name: arr
-      base_template: arr-debian12.tar.gz
-      vmid: "301"
-      ip: "10.1.1.20/24"
+      lxc_name: traefik
+      base_template: traefik-debian12.tar.gz
+      vmid: "300"
+      ip: ${{ github.ref_name == 'main' && '10.1.1.10/24' || '10.1.1.110/24' }}
       memory: "2048"
       cores: "1"
       storage_size: "16G"
@@ -34,21 +35,12 @@ jobs:
       
       - name: sleep to allow lxc to come online
         run: sleep 15
-       
-  add-mount:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
-    uses: ./.gitea/workflows/common/lxc-ansible.yaml
-    with:
-      lxc_name: arr
-      playbook: ansible/common/add-unprivileged-nfs-mount.yaml
-    secrets: inherit
 
   start-containers:
     if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     needs: post-deploy
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
-      lxc_name: arr
+      lxc_name: traefik
       playbook: ansible/common/start-docker-containers.yaml
     secrets: inherit

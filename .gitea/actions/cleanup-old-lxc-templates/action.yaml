@@ -1,0 +1,36 @@
+name: Cleanup LXC if exists
+description: "Checks if an LXC exists with the given name, stops it, and deletes it if found."
+
+inputs:
+  lxc_name:
+    description: "The name of the LXC container to check and cleanup"
+    required: true
+  pve_node_ip:
+    description: "IP address of the Proxmox node"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check and cleanup LXC
+      shell: bash
+      run: |
+        echo "Checking for existing container with name: '${{ inputs.lxc_name }}'..."
+
+        VMID=$(ssh -oBatchMode=yes root@${{ inputs.pve_node_ip }} \
+          "pvesh get /cluster/resources --type vm --output-format yaml \
+          | awk -v target='${{ inputs.lxc_name }}' '
+              /^[[:space:]]*name:/ {
+                split(\$0, a, \": \")
+                if (a[2] == target) found=1
+              }
+              found && /^[[:space:]]*vmid:/ {print \$2; exit}'")
+
+        if [ -n "$VMID" ]; then
+          echo "Found existing container with name '${{ inputs.lxc_name }}' (VMID=$VMID). Cleaning up..."
+          ssh -oBatchMode=yes root@${{ inputs.pve_node_ip }} "pct stop $VMID || true"
+          ssh -oBatchMode=yes root@${{ inputs.pve_node_ip }} "pct destroy $VMID --force || true"
+          echo "Container $VMID deleted."
+        else
+          echo "No existing container found with name '${{ inputs.lxc_name }}'."
+        fi

@@ -1,0 +1,183 @@
+---
+- name: Deploy Traefik + CrowdSec stack with auto-generated bouncer key
+  hosts: lxc
+  become: yes
+  vars:
+    remote_dir: /docker
+    compose_file: docker-compose.yaml
+    docker_images:
+      - traefik:latest
+      - crowdsecurity/crowdsec:latest
+      - crowdsecurity/cloudflare-bouncer:latest
+      - fbonalair/traefik-crowdsec-bouncer:latest
+      - authelia/authelia:latest
+      - tecnativa/docker-socket-proxy:latest
+      - traefik/whoami:latest
+      - docker.io/library/postgres:18-alpine
+      - docker.io/library/redis:alpine
+
+  vars_files:
+    - "{{ playbook_dir }}/vault.yaml"
+
+  tasks:
+
+    - name: Ensure remote directory exists
+      file:
+        path: "{{ remote_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Ensure Traefik rules directory exists
+      file:
+        path: "{{ remote_dir }}/appdata/traefik/rules"
+        state: directory
+        mode: '0755'
+
+    - name: Ensure Traefik data directory exists
+      file:
+        path: "{{ remote_dir }}/appdata/traefik/data"
+        state: directory
+        mode: '0755'
+
+    - name: Ensure acme.json exists
+      file:
+        path: "{{ remote_dir }}/appdata/traefik/data/acme.json"
+        state: touch
+        mode: '0600'
+
+    - name: Copy docker-compose.yaml to remote host
+      copy:
+        src: "{{ playbook_dir }}/{{ compose_file }}"
+        dest: "{{ remote_dir }}/{{ compose_file }}"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Decrypt vault file in place
+      ansible.builtin.shell: |
+        echo "$ANSIBLE_VAULT_PASSWORD" > /tmp/vault_pass.txt
+        ansible-vault decrypt {{ playbook_dir }}/vault.yaml --vault-password-file /tmp/vault_pass.txt
+        ansible-vault decrypt {{ playbook_dir }}/authelia/access_control.yaml --vault-password-file /tmp/vault_pass.txt
+        rm -f /tmp/vault_pass.txt
+      delegate_to: localhost
+      run_once: true
+      environment:
+        ANSIBLE_VAULT_PASSWORD: "{{ lookup('env', 'ANSIBLE_VAULT_PASSWORD') }}"
+
+    - name: Run frender on rules directory with decrypted vault
+      ansible.builtin.shell: |
+        frender {{ playbook_dir }}/authelia/access_control.yaml -ow --env-file "{{ playbook_dir }}/vault.yaml"
+        frender -d {{ playbook_dir }}/authelia -r -ow --env-file "{{ playbook_dir }}/vault.yaml" --env-file "{{ playbook_dir }}/authelia/access_control.yaml"
+        frender -d {{ playbook_dir }}/rules -r -ow --env-file "{{ playbook_dir }}/vault.yaml"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Run frender on authelia directory with decrypted vault
+      ansible.builtin.command: >
+        frender -d {{ playbook_dir }}/authelia -r -ow --env-file "{{ playbook_dir }}/vault.yaml"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Copy Traefik rules directory
+      copy:
+        src: "{{ playbook_dir }}/rules"
+        dest: "{{ remote_dir }}/appdata/traefik"
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy authelia directory
+      copy:
+        src: "{{ playbook_dir }}/authelia"
+        dest: "{{ remote_dir }}/appdata"
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Pre-pull required images
+      community.docker.docker_image:
+        name: "{{ item }}"
+        source: pull
+      loop: "{{ docker_images }}"
+
+    - name: Start only CrowdSec initially (needed for bouncer key)
+      ansible.builtin.command:
+        cmd: docker compose up -d crowdsec
+        chdir: "{{ remote_dir }}"
+
+    - name: Update Crowdsec lists
+      ansible.builtin.command: >
+        docker exec crowdsec cscli hub update
+
+    - name: Generate CrowdSec bouncer API key if missing
+      ansible.builtin.command: docker exec crowdsec cscli bouncers add traefik-bouncer -o raw
+      register: bouncer_key
+      changed_when: bouncer_key.rc == 0
+      failed_when: bouncer_key.rc != 0 and "'already exists'" not in (bouncer_key.stderr | default(''))
+
+    - name: Generate Cloudflare bouncer API key if missing
+      ansible.builtin.command: docker exec crowdsec cscli bouncers add cloudflare-bouncer -o raw
+      register: cf_bouncer_key
+      changed_when: cf_bouncer_key.rc == 0
+      failed_when: cf_bouncer_key.rc != 0 and "'already exists'" not in (cf_bouncer_key.stderr | default(''))
+
+    - name: Ensure Cloudflare bouncer directory exists
+      file:
+        path: "{{ remote_dir }}/appdata/cloudflare-bouncer"
+        state: directory
+        mode: '0755'
+
+    - name: Generate Cloudflare bouncer cfg.yaml
+      ansible.builtin.command: >
+        sh -c "docker run crowdsecurity/cloudflare-bouncer -g {{ CF_BOUNCER_TOKEN }} > {{ remote_dir }}/appdata/cloudflare-bouncer/cfg.yaml"
+      args:
+        creates: "{{ remote_dir }}/appdata/cloudflare-bouncer/cfg.yaml"
+      register: cf_bouncer_cfg
+      become: true
+      changed_when: cf_bouncer_cfg.rc == 0
+    
+    - name: Read generated cfg.yaml
+      ansible.builtin.slurp:
+        src: "{{ remote_dir }}/appdata/cloudflare-bouncer/cfg.yaml"
+      register: cf_bouncer_cfg_raw
+
+    - name: Parse YAML contents
+      ansible.builtin.set_fact:
+        cf_bouncer_cfg_parsed: "{{ cf_bouncer_cfg_raw.content | b64decode | from_yaml }}"
+
+    - name: Update cfg.yaml with correct values
+      ansible.builtin.copy:
+        dest: "{{ remote_dir }}/appdata/cloudflare-bouncer/cfg.yaml"
+        content: |
+          {{ cf_bouncer_cfg_parsed | combine({
+            'crowdsec_lapi_url': 'http://crowdsec:8080/',
+            'crowdsec_lapi_key': cf_bouncer_key.stdout | trim,
+            'cloudflare_config': cf_bouncer_cfg_parsed.cloudflare_config | combine({
+              'accounts': cf_bouncer_cfg_parsed.cloudflare_config.accounts | map('combine', {'total_ip_list_capacity': 9990}) | list
+            })
+          }, recursive=True) | to_nice_yaml(indent=4) }}
+        mode: '0644'
+
+    - name: Ensure .env file is written from Vaulted secrets + generated bouncer key
+      copy:
+        dest: "{{ remote_dir }}/.env"
+        content: |
+          DOMAIN={{ DOMAIN }}
+          CF_EMAIL={{ CF_EMAIL }}
+          CF_API_KEY={{ CF_API_KEY }}
+          AUTHELIA_JWT_SECRET={{ AUTHELIA_JWT_SECRET }}
+          AUTHELIA_SESSION_SECRET={{ AUTHELIA_SESSION_SECRET }}
+          TZ={{ TZ }}
+          CF_BOUNCER_TOKEN={{ CF_BOUNCER_TOKEN }}
+          CROWDSEC_BOUNCER_TRAEFIK_API_KEY={{ bouncer_key.stdout | default('') }}
+          AUTHELIA_PG_PASS={{ AUTHELIA_PG_PASS }}
+          AUTHELIA_PG_USER={{ AUTHELIA_PG_USER }}
+          AUTHELIA_PG_DB={{ AUTHELIA_PG_DB }}
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Start Docker Compose stack with full secrets
+      ansible.builtin.command:
+        cmd: docker compose up -d
+        chdir: "{{ remote_dir }}"
