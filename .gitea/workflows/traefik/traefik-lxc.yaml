@@ -1,0 +1,46 @@
+name: Traefik LXC CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "feature/**"
+    paths:
+      - ".gitea/workflows/traefik/traefik-lxc.yaml"
+      - ".gitea/workflows/lxc-terraform.yaml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.gitea/workflows/common/lxc-terraform.yaml
+    with:
+      target_node: "mother"
+      lxc_name: traefik
+      base_template: traefik-debian12.tar.gz
+      vmid: "300"
+      ip: ${{ github.ref_name == 'main' && '10.1.1.10/24' || '10.1.1.110/24' }}
+      memory: "2048"
+      cores: "1"
+      storage_size: "16G"
+      enable_docker: true
+      unprivileged: true
+    secrets: inherit
+  
+  post-deploy:
+    needs: deploy
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      
+      - name: sleep to allow lxc to come online
+        run: sleep 15
+
+  start-containers:
+    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+    needs: post-deploy
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: traefik
+      playbook: ansible/common/start-docker-containers.yaml
+    secrets: inherit
