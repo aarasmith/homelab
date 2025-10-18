@@ -43,4 +43,4 @@ jobs:
     with:
       lxc_name: traefik
       playbook: ansible/common/start-docker-containers.yaml
-    secrets: inherit  
+    secrets: inherit
