@@ -131,11 +131,13 @@ services:
       timeout: 5s
     volumes:
       - authelia_database:/var/lib/postgresql/data
-      - /docker/appdata/postgres/pg_hba.conf:/var/lib/postgresql/data/pg_hba.conf:ro
+      - /docker/appdata/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
     environment:
       POSTGRES_PASSWORD: ${AUTHELIA_PG_PASS}
       POSTGRES_USER: authelia
       POSTGRES_DB: authelia
+    command: >
+      postgres -c hba_file=/etc/postgresql/pg_hba.conf
 
   authelia_redis:
     image: docker.io/library/redis:alpine
