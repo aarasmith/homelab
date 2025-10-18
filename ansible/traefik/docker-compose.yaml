@@ -118,7 +118,7 @@ services:
       - "traefik.http.routers.authelia-secure.tls.domains[0].main=$DOMAIN"
 
   authelia_postgres:
-    image: docker.io/library/postgres:12-alpine
+    image: docker.io/library/postgres:18-alpine
     container_name: authelia_postgres
     networks:
       - proxy
@@ -130,14 +130,11 @@ services:
       retries: 5
       timeout: 5s
     volumes:
-      - authelia_database:/var/lib/postgresql/data
-      - /docker/appdata/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - authelia_database:/var/lib/postgresql
     environment:
       POSTGRES_PASSWORD: ${AUTHELIA_PG_PASS}
       POSTGRES_USER: authelia
       POSTGRES_DB: authelia
-    command: >
-      postgres -c hba_file=/etc/postgresql/pg_hba.conf
 
   authelia_redis:
     image: docker.io/library/redis:alpine

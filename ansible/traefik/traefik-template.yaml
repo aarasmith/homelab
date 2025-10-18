@@ -13,6 +13,8 @@
       - authelia/authelia:latest
       - tecnativa/docker-socket-proxy:latest
       - traefik/whoami:latest
+      - docker.io/library/postgres:18-alpine
+      - docker.io/library/redis:alpine
 
   vars_files:
     - "{{ playbook_dir }}/vault.yaml"
@@ -56,14 +58,6 @@
         path: "{{ remote_dir }}/appdata/postgres"
         state: directory
         mode: '0755'
-
-    - name: Copy pg_hba.conf to remote host
-      copy:
-        src: "{{ playbook_dir }}/postgres/pg_hba.conf"
-        dest: "{{ remote_dir }}/appdata/postgres/pg_hba.conf"
-        owner: root
-        group: root
-        mode: '0644'
 
     - name: Decrypt vault file in place
       ansible.builtin.shell: |
