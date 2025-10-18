@@ -63,4 +63,4 @@ jobs:
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: ansible-playbook -i hosts.ini ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")
+        run: ansible-playbook -i hosts.ini ${{ inputs.playbook }} --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")
