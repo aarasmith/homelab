@@ -53,12 +53,6 @@
         group: root
         mode: '0644'
 
-    - name: setup postgres directory
-      file:
-        path: "{{ remote_dir }}/appdata/postgres"
-        state: directory
-        mode: '0755'
-
     - name: Decrypt vault file in place
       ansible.builtin.shell: |
         echo "$ANSIBLE_VAULT_PASSWORD" > /tmp/vault_pass.txt

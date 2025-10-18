@@ -95,6 +95,9 @@ services:
     container_name: authelia
     image: authelia/authelia:latest
     restart: always
+    depends_on:
+      authelia_postgres:
+        condition: service_healthy
     networks:
       - proxy
     volumes:
