@@ -46,10 +46,6 @@ access_control:
     # Rules applied to everyone
     - domain: auth.{{ DOMAIN }}
       policy: bypass
-    - domain: "*.{{ DOMAIN }}"
-      policy: two_factor
-    - domain: "{{ DOMAIN }}"
-      policy: two_factor
     {%- for rule in access_control.rules %}
     {%- for key, value in rule.items() %}
     {% if loop.first %}- {{ key }}: {{ value }}
@@ -57,6 +53,10 @@ access_control:
     {%- endif %}
     {%- endfor %}
     {%- endfor %}
+    - domain: "*.{{ DOMAIN }}"
+      policy: two_factor
+    - domain: "{{ DOMAIN }}"
+      policy: two_factor
 session:
   name: authelia_session
   # This secret can also be set using the env variables AUTHELIA_SESSION_SECRET_FILE
