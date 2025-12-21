@@ -1,17 +1,20 @@
 ---
-- name: Migrate Jellyfin config between LXCs (full data)
+- name: Migrate Jellyfin between LXCs (FULL data, safe restore)
   hosts: lxc
   become: yes
 
   vars:
     jellyfin:
       service_name: jellyfin
-    backup_tmp_dir: /tmp/jellyfin-backup
+
+    source_backup_dir: /tmp/jellyfin-backup
+    restore_staging_dir: /tmp/jellyfin-restore
+    backup_archive: /tmp/jellyfin-full.tar.gz
 
   tasks:
-    # -------------------------
-    # STOP SOURCE SERVICE
-    # -------------------------
+    # =====================================================
+    # STOP JELLYFIN ON SOURCE
+    # =====================================================
     - name: Stop Jellyfin on source host
       ansible.builtin.service:
         name: "{{ jellyfin.service_name }}"
@@ -19,132 +22,142 @@
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
-    # -------------------------
-    # CREATE TEMP BACKUP DIR
-    # -------------------------
-    - name: Create temporary backup directory on source
+    # =====================================================
+    # PREPARE BACKUP DIR ON SOURCE
+    # =====================================================
+    - name: Create temporary Jellyfin backup directory on source
       ansible.builtin.file:
-        path: "{{ backup_tmp_dir }}"
+        path: "{{ source_backup_dir }}"
         state: directory
         mode: "0755"
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
-    # -------------------------
-    # COPY CONFIG AND DATA ON SOURCE
-    # -------------------------
-    - name: Copy /etc/jellyfin to backup dir
+    # =====================================================
+    # COPY SOURCE DATA (STRUCTURED)
+    # =====================================================
+    - name: Copy Jellyfin config (/etc/jellyfin)
       ansible.builtin.command:
-        cmd: "cp -a /etc/jellyfin {{ backup_tmp_dir }}/config"
+        cmd: cp -a /etc/jellyfin "{{ source_backup_dir }}/config"
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
-    - name: Copy /var/lib/jellyfin to backup dir
+    - name: Copy Jellyfin data (/var/lib/jellyfin)
       ansible.builtin.command:
-        cmd: "cp -a /var/lib/jellyfin {{ backup_tmp_dir }}/data"
+        cmd: cp -a /var/lib/jellyfin "{{ source_backup_dir }}/data"
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
-    # -------------------------
-    # ARCHIVE BACKUP
-    # -------------------------
-    - name: Archive Jellyfin backup on source host
+    # =====================================================
+    # ARCHIVE BACKUP ON SOURCE
+    # =====================================================
+    - name: Create Jellyfin backup archive on source
       ansible.builtin.archive:
         path:
-          - "{{ backup_tmp_dir }}/config"
-          - "{{ backup_tmp_dir }}/data"
-        dest: /tmp/jellyfin-full.tar.gz
+          - "{{ source_backup_dir }}/config"
+          - "{{ source_backup_dir }}/data"
+        dest: "{{ backup_archive }}"
         format: gz
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
-    # -------------------------
-    # FETCH ARCHIVE TO CONTROL NODE
-    # -------------------------
-    - name: Fetch Jellyfin archive from source host
+    # =====================================================
+    # RESTART SOURCE JELLYFIN
+    # =====================================================
+    - name: Restart Jellyfin on source
+      ansible.builtin.service:
+        name: "{{ jellyfin.service_name }}"
+        state: started
+      delegate_to: "{{ source_host }}"
+      remote_user: "{{ source_user }}"
+
+    # =====================================================
+    # FETCH BACKUP TO CONTROL NODE
+    # =====================================================
+    - name: Fetch Jellyfin archive from source
       ansible.builtin.fetch:
-        src: /tmp/jellyfin-full.tar.gz
+        src: "{{ backup_archive }}"
         dest: /tmp/
         flat: yes
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
-    # -------------------------
-    # COPY TO DESTINATION
-    # -------------------------
-    - name: Copy Jellyfin archive to destination host
+    # =====================================================
+    # COPY BACKUP TO DESTINATION
+    # =====================================================
+    - name: Copy Jellyfin archive to destination
       ansible.builtin.copy:
-        src: /tmp/jellyfin-full.tar.gz
-        dest: /tmp/jellyfin-full.tar.gz
+        src: "{{ backup_archive }}"
+        dest: "{{ backup_archive }}"
 
-    # -------------------------
-    # STOP DESTINATION SERVICE
-    # -------------------------
+    # =====================================================
+    # STOP JELLYFIN ON DESTINATION
+    # =====================================================
     - name: Stop Jellyfin on destination
       ansible.builtin.service:
         name: "{{ jellyfin.service_name }}"
         state: stopped
       ignore_errors: yes
 
-    # -------------------------
-    # MOVE EXISTING CONFIG OUT OF THE WAY
-    # -------------------------
-    - name: Backup existing Jellyfin directories on destination
-      ansible.builtin.shell: |
-        [ -d /etc/jellyfin ] && mv /etc/jellyfin /etc/jellyfin.bak
-        [ -d /var/lib/jellyfin ] && mv /var/lib/jellyfin /var/lib/jellyfin.bak
+    # =====================================================
+    # CREATE RESTORE STAGING DIR
+    # =====================================================
+    - name: Create Jellyfin restore staging directory
+      ansible.builtin.file:
+        path: "{{ restore_staging_dir }}"
+        state: directory
+        mode: "0755"
 
-    # -------------------------
-    # EXTRACT ARCHIVE
-    # -------------------------
-    - name: Extract Jellyfin archive on destination
+    # =====================================================
+    # EXTRACT INTO STAGING (CRITICAL)
+    # =====================================================
+    - name: Extract Jellyfin archive into staging directory
       ansible.builtin.unarchive:
-        src: /tmp/jellyfin-full.tar.gz
-        dest: /
+        src: "{{ backup_archive }}"
+        dest: "{{ restore_staging_dir }}"
         remote_src: yes
 
-    # -------------------------
+    # =====================================================
+    # MOVE INTO CORRECT LOCATIONS
+    # =====================================================
+    - name: Restore Jellyfin config to /etc/jellyfin
+      ansible.builtin.command:
+        cmd: mv "{{ restore_staging_dir }}/config" /etc/jellyfin
+
+    - name: Restore Jellyfin data to /var/lib/jellyfin
+      ansible.builtin.command:
+        cmd: mv "{{ restore_staging_dir }}/data" /var/lib/jellyfin
+
+    # =====================================================
     # FIX OWNERSHIP
-    # -------------------------
-    - name: Ensure correct Jellyfin ownership
+    # =====================================================
+    - name: Ensure correct ownership of Jellyfin files
       ansible.builtin.file:
-        path: /var/lib/jellyfin
+        path: "{{ item }}"
         owner: jellyfin
         group: jellyfin
         recurse: yes
+      loop:
+        - /etc/jellyfin
+        - /var/lib/jellyfin
 
-    - name: Ensure correct Jellyfin ownership (config)
+    # =====================================================
+    # CLEAN UP TEMP FILES
+    # =====================================================
+    - name: Remove Jellyfin restore staging directory
       ansible.builtin.file:
-        path: /etc/jellyfin
-        owner: jellyfin
-        group: jellyfin
-        recurse: yes
+        path: "{{ restore_staging_dir }}"
+        state: absent
 
-    # -------------------------
-    # START DESTINATION SERVICE
-    # -------------------------
+    - name: Remove Jellyfin backup archive
+      ansible.builtin.file:
+        path: "{{ backup_archive }}"
+        state: absent
+
+    # =====================================================
+    # START JELLYFIN ON DESTINATION
+    # =====================================================
     - name: Start Jellyfin on destination
       ansible.builtin.service:
         name: "{{ jellyfin.service_name }}"
         state: started
-
-    # -------------------------
-    # CLEANUP
-    # -------------------------
-    - name: Clean up Jellyfin archive and temporary backup dir on destination
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /tmp/jellyfin-full.tar.gz
-        - "{{ backup_tmp_dir }}"
-
-    # -------------------------
-    # RESTART SOURCE SERVICE
-    # -------------------------
-    - name: Restart Jellyfin on source host
-      ansible.builtin.service:
-        name: "{{ jellyfin.service_name }}"
-        state: started
-      delegate_to: "{{ source_host }}"
-      remote_user: "{{ source_user }}"
