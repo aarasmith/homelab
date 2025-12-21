@@ -32,7 +32,7 @@
       remote_user: "{{ source_user }}"
 
     # =====================================================
-    # COPY SOURCE DATA (STRUCTURED)
+    # COPY SOURCE DATA
     # =====================================================
     - name: Copy Jellyfin config (/etc/jellyfin)
       ansible.builtin.command:
@@ -64,6 +64,17 @@
         name: "{{ jellyfin.service_name }}"
         state: stopped
       ignore_errors: yes
+
+    # =====================================================
+    # CLEAN TARGET LOCATIONS
+    # =====================================================
+    - name: Restore Jellyfin config to /etc/jellyfin
+      ansible.builtin.command:
+        cmd: rm -rf /etc/jellyfin
+
+    - name: Restore Jellyfin data to /var/lib/jellyfin
+      ansible.builtin.command:
+        cmd: rm -rf /var/lib/jellyfin
 
     # =====================================================
     # MOVE INTO CORRECT LOCATIONS
