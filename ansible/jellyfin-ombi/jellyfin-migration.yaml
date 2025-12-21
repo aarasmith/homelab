@@ -1,5 +1,5 @@
 ---
-- name: Migrate Jellyfin config between bare-metal LXCs (trimmed data only)
+- name: Migrate Jellyfin config between LXCs (full data)
   hosts: lxc
   become: yes
 
@@ -19,13 +19,13 @@
       remote_user: "{{ source_user }}"
 
     # -------------------------
-    # ARCHIVE SOURCE DATA (TRIMMED)
+    # ARCHIVE SOURCE DATA
     # -------------------------
-    - name: Archive Jellyfin config on source host (no metadata/cache)
+    - name: Archive Jellyfin config on source host
       ansible.builtin.shell: >
-        tar czf /tmp/jellyfin-config.tar.gz
+        tar czf /tmp/jellyfin-full.tar.gz
         -C / etc/jellyfin
-        -C /var/lib/jellyfin data plugins
+        -C /var/lib/jellyfin .
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
@@ -34,7 +34,7 @@
     # -------------------------
     - name: Fetch Jellyfin archive from source host
       ansible.builtin.fetch:
-        src: /tmp/jellyfin-config.tar.gz
+        src: /tmp/jellyfin-full.tar.gz
         dest: /tmp/
         flat: yes
       delegate_to: "{{ source_host }}"
@@ -45,8 +45,8 @@
     # -------------------------
     - name: Copy Jellyfin archive to destination host
       ansible.builtin.copy:
-        src: /tmp/jellyfin-config.tar.gz
-        dest: /tmp/jellyfin-config.tar.gz
+        src: /tmp/jellyfin-full.tar.gz
+        dest: /tmp/jellyfin-full.tar.gz
 
     # -------------------------
     # STOP DESTINATION SERVICE
@@ -66,8 +66,7 @@
         state: absent
       loop:
         - /etc/jellyfin
-        - /var/lib/jellyfin/data
-        - /var/lib/jellyfin/plugins
+        - /var/lib/jellyfin
 
     # -------------------------
     # RECREATE DIRECTORIES
@@ -81,15 +80,14 @@
         mode: "0755"
       loop:
         - /etc/jellyfin
-        - /var/lib/jellyfin/data
-        - /var/lib/jellyfin/plugins
+        - /var/lib/jellyfin
 
     # -------------------------
     # EXTRACT ARCHIVE
     # -------------------------
     - name: Extract Jellyfin config on destination
       ansible.builtin.unarchive:
-        src: /tmp/jellyfin-config.tar.gz
+        src: /tmp/jellyfin-full.tar.gz
         dest: /
         remote_src: yes
 
@@ -116,7 +114,7 @@
     # -------------------------
     - name: Clean up Jellyfin archive
       ansible.builtin.file:
-        path: /tmp/jellyfin-config.tar.gz
+        path: /tmp/jellyfin-full.tar.gz
         state: absent
 
     # -------------------------
