@@ -1,16 +1,16 @@
 ---
-- name: Migrate Jellyfin config between bare-metal LXCs
+- name: Migrate Jellyfin config between bare-metal LXCs (trimmed data only)
   hosts: lxc
   become: yes
 
   vars:
     jellyfin:
       service_name: jellyfin
-      config_paths:
-        - /etc/jellyfin
-        - /var/lib/jellyfin
 
   tasks:
+    # -------------------------
+    # STOP SOURCE SERVICE
+    # -------------------------
     - name: Stop Jellyfin on source host
       ansible.builtin.service:
         name: "{{ jellyfin.service_name }}"
@@ -18,14 +18,20 @@
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
-    - name: Archive Jellyfin config on source host
+    # -------------------------
+    # ARCHIVE SOURCE DATA (TRIMMED)
+    # -------------------------
+    - name: Archive Jellyfin config on source host (no metadata/cache)
       ansible.builtin.shell: >
         tar czf /tmp/jellyfin-config.tar.gz
         -C / etc/jellyfin
-        -C / var/lib/jellyfin
+        -C /var/lib/jellyfin data plugins
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
+    # -------------------------
+    # FETCH TO CONTROL NODE
+    # -------------------------
     - name: Fetch Jellyfin archive from source host
       ansible.builtin.fetch:
         src: /tmp/jellyfin-config.tar.gz
@@ -34,23 +40,38 @@
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
+    # -------------------------
+    # COPY TO DESTINATION
+    # -------------------------
     - name: Copy Jellyfin archive to destination host
       ansible.builtin.copy:
         src: /tmp/jellyfin-config.tar.gz
         dest: /tmp/jellyfin-config.tar.gz
 
+    # -------------------------
+    # STOP DESTINATION SERVICE
+    # -------------------------
     - name: Stop Jellyfin on destination
       ansible.builtin.service:
         name: "{{ jellyfin.service_name }}"
         state: stopped
       ignore_errors: yes
 
-    - name: Remove existing Jellyfin config paths
+    # -------------------------
+    # REMOVE EXISTING CONFIG
+    # -------------------------
+    - name: Remove existing Jellyfin config directories
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
-      loop: "{{ jellyfin.config_paths }}"
+      loop:
+        - /etc/jellyfin
+        - /var/lib/jellyfin/data
+        - /var/lib/jellyfin/plugins
 
+    # -------------------------
+    # RECREATE DIRECTORIES
+    # -------------------------
     - name: Recreate Jellyfin directories
       ansible.builtin.file:
         path: "{{ item }}"
@@ -58,24 +79,49 @@
         owner: jellyfin
         group: jellyfin
         mode: "0755"
-      loop: "{{ jellyfin.config_paths }}"
+      loop:
+        - /etc/jellyfin
+        - /var/lib/jellyfin/data
+        - /var/lib/jellyfin/plugins
 
+    # -------------------------
+    # EXTRACT ARCHIVE
+    # -------------------------
     - name: Extract Jellyfin config on destination
       ansible.builtin.unarchive:
         src: /tmp/jellyfin-config.tar.gz
         dest: /
         remote_src: yes
 
+    # -------------------------
+    # FIX OWNERSHIP
+    # -------------------------
+    - name: Ensure correct Jellyfin ownership
+      ansible.builtin.file:
+        path: /var/lib/jellyfin
+        owner: jellyfin
+        group: jellyfin
+        recurse: yes
+
+    # -------------------------
+    # START DESTINATION SERVICE
+    # -------------------------
     - name: Start Jellyfin on destination
       ansible.builtin.service:
         name: "{{ jellyfin.service_name }}"
         state: started
 
+    # -------------------------
+    # CLEANUP
+    # -------------------------
     - name: Clean up Jellyfin archive
       ansible.builtin.file:
         path: /tmp/jellyfin-config.tar.gz
         state: absent
 
+    # -------------------------
+    # RESTART SOURCE SERVICE
+    # -------------------------
     - name: Restart Jellyfin on source host
       ansible.builtin.service:
         name: "{{ jellyfin.service_name }}"

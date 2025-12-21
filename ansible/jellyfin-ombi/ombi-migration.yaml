@@ -7,8 +7,10 @@
     ombi:
       container_name: ombi
       source_config_path: /docker/appdata/ombi/config
-      dest_config_path: /etc/ombi
+      dest_data_path: /var/lib/ombi
       service_name: ombi
+      user: ombi
+      group: ombi
 
   tasks:
     - name: Stop Ombi container on source host
@@ -41,24 +43,26 @@
         state: stopped
       ignore_errors: yes
 
-    - name: Remove existing Ombi config on destination
+    - name: Remove existing Ombi data directory
       ansible.builtin.file:
-        path: "{{ ombi.dest_config_path }}"
+        path: "{{ ombi.dest_data_path }}"
         state: absent
 
-    - name: Recreate Ombi config directory
+    - name: Recreate Ombi data directory
       ansible.builtin.file:
-        path: "{{ ombi.dest_config_path }}"
+        path: "{{ ombi.dest_data_path }}"
         state: directory
-        owner: root
-        group: root
+        owner: "{{ ombi.user }}"
+        group: "{{ ombi.group }}"
         mode: "0755"
 
-    - name: Extract Ombi config on destination
+    - name: Extract Ombi config to data directory
       ansible.builtin.unarchive:
         src: /tmp/ombi-config.tar.gz
-        dest: "{{ ombi.dest_config_path }}"
+        dest: "{{ ombi.dest_data_path }}"
         remote_src: yes
+        owner: "{{ ombi.user }}"
+        group: "{{ ombi.group }}"
 
     - name: Start Ombi service on destination
       ansible.builtin.service:
