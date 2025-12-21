@@ -57,8 +57,8 @@
 
     - name: Copy Authelia access controls
       copy:
-        src: "{{ playbook_dir }}/authelia/access_controls.yaml"
-        dest: "{{ remote_dir }}/appdata/authelia/access_controls.yaml"
+        src: "{{ playbook_dir }}/authelia/access_control.yaml"
+        dest: "{{ remote_dir }}/appdata/authelia/access_control.yaml"
         owner: root
         group: root
         mode: '0644'
