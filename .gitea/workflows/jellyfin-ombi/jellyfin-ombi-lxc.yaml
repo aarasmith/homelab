@@ -35,13 +35,22 @@ jobs:
       - name: sleep to allow lxc to come online
         run: sleep 15
        
-  add-mount:
+  add-media-mount:
     if: ${{ contains(fromJSON('["main"]'), github.ref_name) }}
     needs: post-deploy
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: jellyfin-ombi
       playbook: ansible/common/add-unprivileged-nfs-mount.yaml
+    secrets: inherit
+
+  add-cattle-share-mount:
+    if: ${{ contains(fromJSON('["main", "dev"]'), github.ref_name) }}
+    needs: post-deploy
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: jellyfin-ombi
+      playbook: ansible/common/add-cattle-share.yaml
     secrets: inherit
 
   add-igpu-passthrough:

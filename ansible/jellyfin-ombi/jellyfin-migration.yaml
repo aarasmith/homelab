@@ -7,9 +7,7 @@
     jellyfin:
       service_name: jellyfin
 
-    source_backup_dir: /tmp/jellyfin-backup
-    restore_staging_dir: /tmp/jellyfin-restore
-    backup_archive: /tmp/jellyfin-full.tar.gz
+    source_backup_dir: /mnt/cattle_share/jellyfin-backup
 
   tasks:
     # =====================================================
@@ -49,19 +47,6 @@
       remote_user: "{{ source_user }}"
 
     # =====================================================
-    # ARCHIVE BACKUP ON SOURCE
-    # =====================================================
-    - name: Create Jellyfin backup archive on source
-      ansible.builtin.archive:
-        path:
-          - "{{ source_backup_dir }}/config"
-          - "{{ source_backup_dir }}/data"
-        dest: "{{ backup_archive }}"
-        format: gz
-      delegate_to: "{{ source_host }}"
-      remote_user: "{{ source_user }}"
-
-    # =====================================================
     # RESTART SOURCE JELLYFIN
     # =====================================================
     - name: Restart Jellyfin on source
@@ -70,25 +55,6 @@
         state: started
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
-
-    # =====================================================
-    # FETCH BACKUP TO CONTROL NODE
-    # =====================================================
-    - name: Fetch Jellyfin archive from source
-      ansible.builtin.fetch:
-        src: "{{ backup_archive }}"
-        dest: /tmp/
-        flat: yes
-      delegate_to: "{{ source_host }}"
-      remote_user: "{{ source_user }}"
-
-    # =====================================================
-    # COPY BACKUP TO DESTINATION
-    # =====================================================
-    - name: Copy Jellyfin archive to destination
-      ansible.builtin.copy:
-        src: "{{ backup_archive }}"
-        dest: "{{ backup_archive }}"
 
     # =====================================================
     # STOP JELLYFIN ON DESTINATION
@@ -100,33 +66,15 @@
       ignore_errors: yes
 
     # =====================================================
-    # CREATE RESTORE STAGING DIR
-    # =====================================================
-    - name: Create Jellyfin restore staging directory
-      ansible.builtin.file:
-        path: "{{ restore_staging_dir }}"
-        state: directory
-        mode: "0755"
-
-    # =====================================================
-    # EXTRACT INTO STAGING (CRITICAL)
-    # =====================================================
-    - name: Extract Jellyfin archive into staging directory
-      ansible.builtin.unarchive:
-        src: "{{ backup_archive }}"
-        dest: "{{ restore_staging_dir }}"
-        remote_src: yes
-
-    # =====================================================
     # MOVE INTO CORRECT LOCATIONS
     # =====================================================
     - name: Restore Jellyfin config to /etc/jellyfin
       ansible.builtin.command:
-        cmd: mv "{{ restore_staging_dir }}/config" /etc/jellyfin
+        cmd: mv "{{ source_backup_dir }}/config" /etc/jellyfin
 
     - name: Restore Jellyfin data to /var/lib/jellyfin
       ansible.builtin.command:
-        cmd: mv "{{ restore_staging_dir }}/data" /var/lib/jellyfin
+        cmd: mv "{{ source_backup_dir }}/data" /var/lib/jellyfin
 
     # =====================================================
     # FIX OWNERSHIP
@@ -146,12 +94,7 @@
     # =====================================================
     - name: Remove Jellyfin restore staging directory
       ansible.builtin.file:
-        path: "{{ restore_staging_dir }}"
-        state: absent
-
-    - name: Remove Jellyfin backup archive
-      ansible.builtin.file:
-        path: "{{ backup_archive }}"
+        path: "{{ source_backup_dir }}"
         state: absent
 
     # =====================================================
