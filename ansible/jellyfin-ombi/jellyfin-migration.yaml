@@ -28,6 +28,7 @@
         path: "{{ source_backup_dir }}"
         state: directory
         mode: "0755"
+        force: yes
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
