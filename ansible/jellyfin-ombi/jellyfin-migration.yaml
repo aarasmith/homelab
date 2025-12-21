@@ -6,6 +6,7 @@
   vars:
     jellyfin:
       service_name: jellyfin
+    backup_tmp_dir: /tmp/jellyfin-backup
 
   tasks:
     # -------------------------
@@ -19,18 +20,46 @@
       remote_user: "{{ source_user }}"
 
     # -------------------------
-    # ARCHIVE SOURCE DATA
+    # CREATE TEMP BACKUP DIR
     # -------------------------
-    - name: Archive Jellyfin config on source host
-      ansible.builtin.shell: >
-        tar czf /tmp/jellyfin-full.tar.gz
-        -C / etc/jellyfin
-        -C /var/lib/jellyfin .
+    - name: Create temporary backup directory on source
+      ansible.builtin.file:
+        path: "{{ backup_tmp_dir }}"
+        state: directory
+        mode: "0755"
       delegate_to: "{{ source_host }}"
       remote_user: "{{ source_user }}"
 
     # -------------------------
-    # FETCH TO CONTROL NODE
+    # COPY CONFIG AND DATA ON SOURCE
+    # -------------------------
+    - name: Copy /etc/jellyfin to backup dir
+      ansible.builtin.command:
+        cmd: "cp -a /etc/jellyfin {{ backup_tmp_dir }}/config"
+      delegate_to: "{{ source_host }}"
+      remote_user: "{{ source_user }}"
+
+    - name: Copy /var/lib/jellyfin to backup dir
+      ansible.builtin.command:
+        cmd: "cp -a /var/lib/jellyfin {{ backup_tmp_dir }}/data"
+      delegate_to: "{{ source_host }}"
+      remote_user: "{{ source_user }}"
+
+    # -------------------------
+    # ARCHIVE BACKUP
+    # -------------------------
+    - name: Archive Jellyfin backup on source host
+      ansible.builtin.archive:
+        path:
+          - "{{ backup_tmp_dir }}/config"
+          - "{{ backup_tmp_dir }}/data"
+        dest: /tmp/jellyfin-full.tar.gz
+        format: gz
+      delegate_to: "{{ source_host }}"
+      remote_user: "{{ source_user }}"
+
+    # -------------------------
+    # FETCH ARCHIVE TO CONTROL NODE
     # -------------------------
     - name: Fetch Jellyfin archive from source host
       ansible.builtin.fetch:
@@ -58,34 +87,17 @@
       ignore_errors: yes
 
     # -------------------------
-    # REMOVE EXISTING CONFIG
+    # MOVE EXISTING CONFIG OUT OF THE WAY
     # -------------------------
-    - name: Remove existing Jellyfin config directories
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /etc/jellyfin
-        - /var/lib/jellyfin
-
-    # -------------------------
-    # RECREATE DIRECTORIES
-    # -------------------------
-    - name: Recreate Jellyfin directories
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: directory
-        owner: jellyfin
-        group: jellyfin
-        mode: "0755"
-      loop:
-        - /etc/jellyfin
-        - /var/lib/jellyfin
+    - name: Backup existing Jellyfin directories on destination
+      ansible.builtin.shell: |
+        [ -d /etc/jellyfin ] && mv /etc/jellyfin /etc/jellyfin.bak
+        [ -d /var/lib/jellyfin ] && mv /var/lib/jellyfin /var/lib/jellyfin.bak
 
     # -------------------------
     # EXTRACT ARCHIVE
     # -------------------------
-    - name: Extract Jellyfin config on destination
+    - name: Extract Jellyfin archive on destination
       ansible.builtin.unarchive:
         src: /tmp/jellyfin-full.tar.gz
         dest: /
@@ -101,6 +113,13 @@
         group: jellyfin
         recurse: yes
 
+    - name: Ensure correct Jellyfin ownership (config)
+      ansible.builtin.file:
+        path: /etc/jellyfin
+        owner: jellyfin
+        group: jellyfin
+        recurse: yes
+
     # -------------------------
     # START DESTINATION SERVICE
     # -------------------------
@@ -112,10 +131,13 @@
     # -------------------------
     # CLEANUP
     # -------------------------
-    - name: Clean up Jellyfin archive
+    - name: Clean up Jellyfin archive and temporary backup dir on destination
       ansible.builtin.file:
-        path: /tmp/jellyfin-full.tar.gz
+        path: "{{ item }}"
         state: absent
+      loop:
+        - /tmp/jellyfin-full.tar.gz
+        - "{{ backup_tmp_dir }}"
 
     # -------------------------
     # RESTART SOURCE SERVICE
