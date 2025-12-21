@@ -24,6 +24,46 @@ http:
       service: wiki-service
       middlewares:
         - chain-authelia@file
+    ombi-router:
+      entryPoints:
+        - "http"
+        - "https"
+      rule: "Host(`ombi.{{ DOMAIN }}`)"
+      service: ombi-service
+      middlewares:
+        - chain-authelia@file
+    prowlarr-router:
+      entryPoints:
+        - "http"
+        - "https"
+      rule: "Host(`prowlarr.{{ DOMAIN }}`)"
+      service: prowlarr-service
+      middlewares:
+        - chain-authelia@file
+    sonarr-router:
+      entryPoints:
+        - "http"
+        - "https"
+      rule: "Host(`sonarr.{{ DOMAIN }}`)"
+      service: sonarr-service
+      middlewares:
+        - chain-authelia@file
+    radarr-router:
+      entryPoints:
+        - "http"
+        - "https"
+      rule: "Host(`radarr.{{ DOMAIN }}`)"
+      service: radarr-service
+      middlewares:
+        - chain-authelia@file
+    sabnzbd-router:
+      entryPoints:
+        - "http"
+        - "https"
+      rule: "Host(`sabnzbd.{{ DOMAIN }}`)"
+      service: sabnzbd-service
+      middlewares:
+        - chain-authelia@file
     git-router:
       entryPoints:
         - "http"
@@ -50,6 +90,26 @@ http:
       loadBalancer:
         servers:
           - url: "http://10.1.1.63:8096"
+    ombi-service:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.1.61:5000"
+    prowlarr-service:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.1.20:9696"
+    sonarr-service:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.1.20:8989"
+    radarr-service:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.1.20:7878"
+    sabnzbd-service:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.1.20:8084"
     wiki-service:
       loadBalancer:
         servers:
