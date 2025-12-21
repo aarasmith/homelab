@@ -1,0 +1,54 @@
+name: Arr LXC CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+    paths:
+      - ".gitea/workflows/jellyfin-ombi/jellyfin-ombi-lxc.yaml"
+      - ".gitea/workflows/lxc-terraform.yaml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.gitea/workflows/common/lxc-terraform.yaml
+    with:
+      target_node: "fish"
+      lxc_name: jellyfin-ombi
+      base_template: jellyfin-ombi-debian12.tar.gz
+      vmid: "302"
+      ip: "10.1.1.21/24"
+      memory: "4096"
+      cores: "2"
+      storage_size: "16G"
+      enable_docker: false
+      unprivileged: true
+    secrets: inherit
+  
+  post-deploy:
+    needs: deploy
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      
+      - name: sleep to allow lxc to come online
+        run: sleep 15
+       
+  add-mount:
+    if: ${{ contains(fromJSON('["main"]'), github.ref_name) }}
+    needs: post-deploy
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: jellyfin-ombi
+      playbook: ansible/common/add-unprivileged-nfs-mount.yaml
+    secrets: inherit
+
+  add-igpu-passthrough:
+    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+    needs: post-deploy
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: jellyfin-ombi
+      playbook: ansible/common/add-igpu-passthrough.yaml
+    secrets: inherit
