@@ -14,7 +14,7 @@ jobs:
   deploy:
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
-      target_node: "fish"
+      target_node: "mother"
       lxc_name: jellyfin-ombi
       base_template: jellyfin-ombi-debian12.tar.gz
       vmid: "302"
