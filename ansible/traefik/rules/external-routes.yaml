@@ -89,11 +89,11 @@ http:
     jellyfin-service:
       loadBalancer:
         servers:
-          - url: "http://10.1.1.63:8096"
+          - url: "http://10.1.1.21:8096"
     ombi-service:
       loadBalancer:
         servers:
-          - url: "http://10.1.1.61:5000"
+          - url: "http://10.1.1.21:5000"
     prowlarr-service:
       loadBalancer:
         servers:
