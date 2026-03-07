@@ -8,7 +8,7 @@ on:
     paths:
       - "services/traefik/rules/**"
       - "services/traefik/authelia/access_control.yaml"
-      - "services/traefik/authelia/configuration.yaml"
+      - "services/traefik/authelia/configuration.yml"
   workflow_dispatch:
 
 jobs:
