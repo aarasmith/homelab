@@ -17,6 +17,6 @@ jobs:
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: traefik
-      playbook: ansible/traefik/traefik-update.yaml
+      playbook: services/traefik/ansible/traefik-update.yaml
     secrets: inherit
     
