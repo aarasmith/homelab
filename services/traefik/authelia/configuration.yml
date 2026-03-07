@@ -62,8 +62,8 @@ session:
   # This secret can also be set using the env variables AUTHELIA_SESSION_SECRET_FILE
   # Used a different secret, but the same site as jwt_secret above.
   secret: {{ AUTHELIA_SESSION_SECRET }}
-  expiration: 3600 # 1 hour
-  inactivity: 1800 # 30 minutes
+  expiration: 86400 # 24 hours
+  inactivity: 14400 # 4 hours
   domain: {{ DOMAIN }} # Should match whatever your root protected domain is
 
 # Optional. Can improve performance on a busy system. If not enabled, session info is stored in memory.
