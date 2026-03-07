@@ -34,6 +34,13 @@
       environment:
         ANSIBLE_VAULT_PASSWORD: "{{ lookup('env', 'ANSIBLE_VAULT_PASSWORD') }}"
 
+    - name: Prefix DOMAIN with dev. if not main branch
+      ansible.builtin.shell: |
+        sed -i 's/^DOMAIN:.*/DOMAIN: dev.{{ DOMAIN }}/' {{ playbook_dir }}/vault.yaml
+      delegate_to: localhost
+      run_once: true
+      when: lookup('env', 'GITHUB_REF_NAME') != 'main'
+
     - name: Run frender on rules directory with decrypted vault
       ansible.builtin.shell: |
         frender {{ service_dir }}/authelia/access_control.yaml -ow --env-file "{{ playbook_dir }}/vault.yaml"
