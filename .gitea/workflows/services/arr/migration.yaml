@@ -1,4 +1,4 @@
-name: Arr Migration from Docker to LXC CI/CD
+name: services | arr | migration
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ jobs:
     uses: ./.gitea/workflows/common/lxc-migration.yaml
     with:
       lxc_name: arr
-      playbook: ansible/arr/arr-migration.yaml
+      playbook: services/arr/migration.yaml
       source_host: "10.1.1.61"
       source_user: dietpi
     secrets: inherit

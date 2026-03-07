@@ -1,4 +1,4 @@
-name: Traefik config update
+name: services | traefik | update-proxy-config
 
 on:
   push:
@@ -6,9 +6,9 @@ on:
       - main
       - dev
     paths:
-      - "ansible/traefik/rules/**"
-      - "ansible/traefik/authelia/access_control.yaml"
-      - "ansible/traefik/authelia/configuration.yaml"
+      - "services/traefik/rules/**"
+      - "services/traefik/authelia/access_control.yaml"
+      - "services/traefik/authelia/configuration.yaml"
   workflow_dispatch:
 
 jobs:

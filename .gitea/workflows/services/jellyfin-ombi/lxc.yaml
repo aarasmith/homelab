@@ -1,13 +1,13 @@
-name: Arr LXC CI/CD
+name: services | jellyfin-ombi | lxc
 
 on:
   push:
     branches:
       - main
+      - dev
       - "feature/**"
     paths:
-      - ".gitea/workflows/arr/arr-lxc.yaml"
-      - ".gitea/workflows/lxc-terraform.yaml"
+      - ".gitea/workflows/services/jellyfin-ombi/lxc.yaml"
   workflow_dispatch:
 
 jobs:
@@ -15,14 +15,14 @@ jobs:
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
       target_node: "mother"
-      lxc_name: arr
-      base_template: arr-debian12.tar.gz
-      vmid: "301"
-      ip: "10.1.1.20/24"
-      memory: "2048"
-      cores: "1"
+      lxc_name: jellyfin-ombi
+      base_template: jellyfin-ombi-debian12.tar.gz
+      vmid: "302"
+      ip: "10.1.1.21/24"
+      memory: "4096"
+      cores: "2"
       storage_size: "16G"
-      enable_docker: true
+      enable_docker: false
       unprivileged: true
     secrets: inherit
   
@@ -35,20 +35,29 @@ jobs:
       - name: sleep to allow lxc to come online
         run: sleep 15
        
-  add-mount:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+  add-media-mount:
+    if: ${{ contains(fromJSON('["main"]'), github.ref_name) }}
     needs: post-deploy
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
-      lxc_name: arr
+      lxc_name: jellyfin-ombi
       playbook: ansible/common/add-unprivileged-nfs-mount.yaml
     secrets: inherit
 
-  start-containers:
+  add-cattle-share-mount:
+    if: ${{ contains(fromJSON('["main", "dev"]'), github.ref_name) }}
+    needs: post-deploy
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: jellyfin-ombi
+      playbook: ansible/common/add-cattle-share.yaml
+    secrets: inherit
+
+  add-igpu-passthrough:
     if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     needs: post-deploy
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
-      lxc_name: arr
-      playbook: ansible/common/start-docker-containers.yaml
+      lxc_name: jellyfin-ombi
+      playbook: ansible/common/add-igpu-passthrough.yaml
     secrets: inherit

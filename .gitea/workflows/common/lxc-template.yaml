@@ -1,8 +1,12 @@
-name: Deploy LXC template
+name: common | lxc-template
 
 on:
   workflow_call:
     inputs:
+      playbook:
+        description: "Path to the template ansible playbook e.g. services/traefik/ansible/traefik-template.yaml"
+        required: true
+        type: string
       template_name:
         description: "Name for LXC template"
         required: true
@@ -116,14 +120,14 @@ jobs:
       - name: inject ansible pve task
         if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
         run: |
-          echo "\n- import_playbook: ../common/dump-lxc-to-template.yaml" >> ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml
+          echo "\n- import_playbook: $GITHUB_WORKSPACE/ansible/common/dump-lxc-to-template.yaml" >> ${{ inputs.playbook }}
 
       - name: Run Ansible Playbook
         shell: bash
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: ansible-playbook -i hosts.ini ansible/${{ inputs.lxc_name }}/${{ inputs.lxc_name }}-template.yaml --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")
+        run: ansible-playbook -i hosts.ini ${{ inputs.playbook }} --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")
         
       - name: Terraform Destroy
         if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || failure() }}

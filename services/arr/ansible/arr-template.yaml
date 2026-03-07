@@ -4,6 +4,7 @@
   become: yes
   vars:
     remote_dir: /docker
+    service_dir: "{{ playbook_dir }}/.."
     compose_file: docker-compose.yaml
     docker_images:
       - ghcr.io/linuxserver/prowlarr:develop
@@ -20,7 +21,7 @@
 
     - name: Copy docker-compose.yaml to remote host
       copy:
-        src: "{{ playbook_dir }}/{{ compose_file }}"
+        src: "{{ service_dir }}/{{ compose_file }}"
         dest: "{{ remote_dir }}/{{ compose_file }}"
         owner: root
         group: root

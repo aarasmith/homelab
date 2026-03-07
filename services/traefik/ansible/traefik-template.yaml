@@ -3,6 +3,7 @@
   hosts: lxc
   become: yes
   vars:
+    service_dir: "{{ playbook_dir }}/.."
     remote_dir: /docker
     compose_file: docker-compose.yaml
     docker_images:
@@ -47,7 +48,7 @@
 
     - name: Copy docker-compose.yaml to remote host
       copy:
-        src: "{{ playbook_dir }}/{{ compose_file }}"
+        src: "{{ service_dir }}/{{ compose_file }}"
         dest: "{{ remote_dir }}/{{ compose_file }}"
         owner: root
         group: root
@@ -57,7 +58,7 @@
       ansible.builtin.shell: |
         echo "$ANSIBLE_VAULT_PASSWORD" > /tmp/vault_pass.txt
         ansible-vault decrypt {{ playbook_dir }}/vault.yaml --vault-password-file /tmp/vault_pass.txt
-        ansible-vault decrypt {{ playbook_dir }}/authelia/access_control.yaml --vault-password-file /tmp/vault_pass.txt
+        ansible-vault decrypt {{ service_dir }}/authelia/access_control.yaml --vault-password-file /tmp/vault_pass.txt
         rm -f /tmp/vault_pass.txt
       delegate_to: localhost
       run_once: true
@@ -66,21 +67,21 @@
 
     - name: Run frender on rules directory with decrypted vault
       ansible.builtin.shell: |
-        frender {{ playbook_dir }}/authelia/access_control.yaml -ow --env-file "{{ playbook_dir }}/vault.yaml"
-        frender -d {{ playbook_dir }}/authelia -r -ow --env-file "{{ playbook_dir }}/vault.yaml" --env-file "{{ playbook_dir }}/authelia/access_control.yaml"
-        frender -d {{ playbook_dir }}/rules -r -ow --env-file "{{ playbook_dir }}/vault.yaml"
+        frender {{ service_dir }}/authelia/access_control.yaml -ow --env-file "{{ playbook_dir }}/vault.yaml"
+        frender -d {{ service_dir }}/authelia -r -ow --env-file "{{ playbook_dir }}/vault.yaml" --env-file "{{ service_dir }}/authelia/access_control.yaml"
+        frender -d {{ service_dir }}/rules -r -ow --env-file "{{ playbook_dir }}/vault.yaml"
       delegate_to: localhost
       run_once: true
 
     - name: Run frender on authelia directory with decrypted vault
       ansible.builtin.command: >
-        frender -d {{ playbook_dir }}/authelia -r -ow --env-file "{{ playbook_dir }}/vault.yaml"
+        frender -d {{ service_dir }}/authelia -r -ow --env-file "{{ playbook_dir }}/vault.yaml"
       delegate_to: localhost
       run_once: true
 
     - name: Copy Traefik rules directory
       copy:
-        src: "{{ playbook_dir }}/rules"
+        src: "{{ service_dir }}/rules"
         dest: "{{ remote_dir }}/appdata/traefik"
         owner: root
         group: root
@@ -88,7 +89,7 @@
 
     - name: Copy authelia directory
       copy:
-        src: "{{ playbook_dir }}/authelia"
+        src: "{{ service_dir }}/authelia"
         dest: "{{ remote_dir }}/appdata"
         owner: root
         group: root

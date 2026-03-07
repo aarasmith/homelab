@@ -1,4 +1,4 @@
-name: Jellyfin LXC and Ombi Docker Migration to LXC CI/CD
+name: services | jellyfin-ombi | migration
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ jobs:
     uses: ./.gitea/workflows/common/lxc-migration.yaml
     with:
       lxc_name: jellyfin-ombi
-      playbook: ansible/jellyfin-ombi/jellyfin-migration.yaml
+      playbook: services/jellyfin-ombi/ansible/jellyfin-migration.yaml
       source_host: "10.1.1.63"
       source_user: root
     secrets: inherit
@@ -16,7 +16,7 @@ jobs:
     uses: ./.gitea/workflows/common/lxc-migration.yaml
     with:
       lxc_name: jellyfin-ombi
-      playbook: ansible/jellyfin-ombi/ombi-migration.yaml
+      playbook: services/jellyfin-ombi/ansible/ombi-migration.yaml
       source_host: "10.1.1.61"
       source_user: dietpi
     secrets: inherit

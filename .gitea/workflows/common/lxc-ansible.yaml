@@ -1,4 +1,4 @@
-name: Run Ansible Playbook
+name: common | lxc-ansible
 
 on:
   workflow_call:
