@@ -74,7 +74,7 @@ session:
     password: {{ AUTHELIA_PG_PASS }}
 
 regulation:
-  max_retries: 3
+  max_retries: 10
   find_time: 120
   ban_time: 300
 
