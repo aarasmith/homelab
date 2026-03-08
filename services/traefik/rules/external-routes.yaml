@@ -80,6 +80,14 @@ http:
       service: dns-service
       middlewares:
         - chain-authelia@file
+    dns-router:
+      entryPoints:
+        - "http"
+        - "https"
+      rule: "Host(`airflow.{{ DOMAIN }}`)"
+      service: airflow-service
+      middlewares:
+        - chain-authelia@file
 
   services:
     hdro-service:
@@ -122,6 +130,10 @@ http:
       loadBalancer:
         servers:
           - url: "http://10.1.1.5:5380"
+    airflow-service:
+      loadBalancer:
+        servers:
+          - url: "http://10.1.1.130:8080"
 
 tcp:
   routers:

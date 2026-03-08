@@ -1,0 +1,90 @@
+---
+# Migration playbook: backs up existing airflow instance and restores to target LXC.
+# Triggered manually only via workflow_dispatch.
+#
+# Flow:
+#   1. Run airflow-backup on the source LXC -> produces timestamped files in /backup/airflow/
+#   2. Fetch backup files to CI runner
+#   3. Copy backup files to destination LXC
+#   4. Run airflow-restore on the destination LXC
+
+- name: Backup Airflow from source host
+  hosts: source
+  become: yes
+
+  tasks:
+    - name: Run backup script on source
+      ansible.builtin.command: /usr/local/bin/airflow-backup
+      register: backup_output
+
+    - name: Show backup output
+      debug:
+        msg: "{{ backup_output.stdout_lines }}"
+
+    - name: Find latest postgres dump
+      ansible.builtin.shell: ls -t /backup/airflow/postgres-*.sql | head -n1
+      register: latest_pg_dump
+
+    - name: Find latest dags archive
+      ansible.builtin.shell: ls -t /backup/airflow/dags-*.tar.gz | head -n1
+      register: latest_dags
+
+    - name: Fetch postgres dump to controller
+      ansible.builtin.fetch:
+        src: "{{ latest_pg_dump.stdout | trim }}"
+        dest: /tmp/airflow-migration/
+        flat: yes
+
+    - name: Fetch dags archive to controller
+      ansible.builtin.fetch:
+        src: "{{ latest_dags.stdout | trim }}"
+        dest: /tmp/airflow-migration/
+        flat: yes
+
+- name: Restore Airflow to destination host
+  hosts: lxc
+  become: yes
+
+  tasks:
+    - name: Ensure backup directory exists on destination
+      file:
+        path: /backup/airflow
+        state: directory
+        mode: '0700'
+
+    - name: Find fetched postgres dump on controller
+      ansible.builtin.shell: ls -t /tmp/airflow-migration/postgres-*.sql | head -n1
+      register: local_pg_dump
+      delegate_to: localhost
+
+    - name: Find fetched dags archive on controller
+      ansible.builtin.shell: ls -t /tmp/airflow-migration/dags-*.tar.gz | head -n1
+      register: local_dags
+      delegate_to: localhost
+
+    - name: Copy postgres dump to destination
+      ansible.builtin.copy:
+        src: "{{ local_pg_dump.stdout | trim }}"
+        dest: "/backup/airflow/{{ local_pg_dump.stdout | trim | basename }}"
+
+    - name: Copy dags archive to destination
+      ansible.builtin.copy:
+        src: "{{ local_dags.stdout | trim }}"
+        dest: "/backup/airflow/{{ local_dags.stdout | trim | basename }}"
+
+    - name: Run restore script on destination
+      ansible.builtin.command: >
+        /usr/local/bin/airflow-restore
+        /backup/airflow/{{ local_pg_dump.stdout | trim | basename }}
+        /backup/airflow/{{ local_dags.stdout | trim | basename }}
+      register: restore_output
+
+    - name: Show restore output
+      debug:
+        msg: "{{ restore_output.stdout_lines }}"
+
+    - name: Clean up fetched files from controller
+      file:
+        path: /tmp/airflow-migration
+        state: absent
+      delegate_to: localhost

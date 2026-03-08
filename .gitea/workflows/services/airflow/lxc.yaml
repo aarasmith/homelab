@@ -1,0 +1,49 @@
+name: Airflow LXC CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "feature/**"
+    paths:
+      - ".gitea/workflows/airflow/airflow-lxc.yaml"
+      - ".gitea/workflows/common/lxc-terraform.yaml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.gitea/workflows/common/lxc-terraform.yaml
+    with:
+      target_node: "mother"
+      lxc_name: airflow
+      base_template: airflow-debian12.tar.gz
+      vmid: "302"
+      ip: ${{ github.ref_name == 'main' && '10.1.1.30/24' || '10.1.1.130/24' }}
+      memory: "4096"
+      cores: "2"
+      storage_size: "32G"
+      enable_docker: true
+      unprivileged: true
+    secrets: inherit
+
+  post-deploy:
+    needs: deploy
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Sleep to allow LXC to come online
+        run: sleep 15
+
+  start:
+    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+    needs: post-deploy
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: airflow
+      playbook: ansible/airflow/airflow-start.yaml
+    secrets: inherit

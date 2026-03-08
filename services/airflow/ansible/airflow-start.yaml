@@ -1,0 +1,33 @@
+---
+# This playbook runs after lxc-terraform spins up the LXC from template.
+# It writes the .env from vault secrets and starts the Docker Compose stack.
+- name: Configure and start Airflow stack
+  hosts: lxc
+  become: yes
+  vars:
+    remote_dir: /docker
+
+  vars_files:
+    - "{{ playbook_dir }}/vault.yaml"
+
+  tasks:
+    - name: Write .env from vault secrets
+      copy:
+        dest: "{{ remote_dir }}/.env"
+        owner: root
+        group: root
+        mode: '0600'
+        content: |
+          AIRFLOW_PG_USER={{ AIRFLOW_PG_USER }}
+          AIRFLOW_PG_PASS={{ AIRFLOW_PG_PASS }}
+          AIRFLOW_PG_DB={{ AIRFLOW_PG_DB }}
+          AIRFLOW_FERNET_KEY={{ AIRFLOW_FERNET_KEY }}
+          AIRFLOW_SECRET_KEY={{ AIRFLOW_SECRET_KEY }}
+          AIRFLOW_ADMIN_USER={{ AIRFLOW_ADMIN_USER }}
+          AIRFLOW_ADMIN_PASS={{ AIRFLOW_ADMIN_PASS }}
+          AIRFLOW_ADMIN_EMAIL={{ AIRFLOW_ADMIN_EMAIL }}
+
+    - name: Start Docker Compose stack
+      ansible.builtin.command:
+        cmd: docker compose up -d
+        chdir: "{{ remote_dir }}"
