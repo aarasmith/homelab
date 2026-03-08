@@ -114,6 +114,12 @@
         cmd: docker compose up -d crowdsec
         chdir: "{{ remote_dir }}"
 
+    - name: Copy Crowdsec acquis.yaml
+      copy:
+        src: "{{ service_dir }}/crowdsec/acquis.yaml"
+        dest: "{{ remote_dir }}/appdata/crowdsec/config/acquis.yaml"
+        mode: '0644'
+
     - name: Update Crowdsec lists
       ansible.builtin.command: >
         docker exec crowdsec cscli hub update

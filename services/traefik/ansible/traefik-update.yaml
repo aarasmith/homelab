@@ -79,6 +79,12 @@
         group: root
         mode: '0644'
 
+    - name: Copy Crowdsec acquis.yaml
+      copy:
+        src: "{{ service_dir }}/crowdsec/acquis.yaml"
+        dest: "{{ remote_dir }}/appdata/crowdsec/config/acquis.yaml"
+        mode: '0644'
+
     - name: Restart Authelia
       ansible.builtin.command:
         cmd: docker compose restart authelia
@@ -87,4 +93,9 @@
     - name: Restart Traefik
       ansible.builtin.command:
         cmd: docker compose restart traefik
+        chdir: "{{ remote_dir }}"
+
+    - name: Restart CrowdSec to pick up acquis changes
+      ansible.builtin.command:
+        cmd: docker compose restart crowdsec
         chdir: "{{ remote_dir }}"

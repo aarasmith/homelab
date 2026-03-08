@@ -1,0 +1,20 @@
+---
+filenames:
+  - /logs/traefik/access.log
+labels:
+  type: traefik
+---
+filenames:
+  - /logs/authelia/authelia.log
+labels:
+  type: authelia
+---
+filenames:
+  - /var/log/auth.log
+labels:
+  type: syslog
+---
+filenames:
+  - /var/log/syslog
+labels:
+  type: syslog

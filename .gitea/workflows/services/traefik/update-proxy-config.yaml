@@ -9,6 +9,7 @@ on:
       - "services/traefik/rules/**"
       - "services/traefik/authelia/access_control.yaml"
       - "services/traefik/authelia/configuration.yml"
+      - "services/traefik/crowdsec/acquis.yaml"
   workflow_dispatch:
 
 jobs:
