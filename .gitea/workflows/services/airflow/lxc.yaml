@@ -28,15 +28,10 @@ jobs:
 
   post-deploy:
     needs: deploy
-    runs-on: ubuntu-latest
-    container:
-      image: ${{ vars.RUNNER_IMAGE }}
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Sleep to allow LXC to come online
-        run: sleep 15
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      vmid: "303"
+    secrets: inherit
 
   start:
     if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
@@ -44,5 +39,5 @@ jobs:
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: airflow
-      playbook: ansible/airflow/airflow-start.yaml
+      playbook: services/airflow/ansible/airflow-start.yaml
     secrets: inherit
