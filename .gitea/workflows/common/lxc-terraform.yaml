@@ -117,6 +117,9 @@ jobs:
       - name: Terraform Init
         run: terraform -chdir=terraform/modules/lxc init -input=false
 
+      - name: Terraform Refresh
+        run: terraform -chdir=terraform/modules/lxc refresh -input=false
+
       - name: Terraform Plan
         run: terraform -chdir=terraform/modules/lxc plan -out=tfplan -input=false
 
