@@ -27,12 +27,10 @@ jobs:
   
   post-deploy:
     needs: deploy
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-      
-      - name: sleep to allow lxc to come online
-        run: sleep 15
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      vmid: "300"
+    secrets: inherit
 
   start-containers:
     if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
