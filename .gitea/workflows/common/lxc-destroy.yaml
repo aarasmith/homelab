@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       confirm:
-        description: "Type the lxc_name again to confirm"
+        description: "Type the current branch name to confirm"
         required: true
         type: string
 
@@ -28,8 +28,8 @@ jobs:
 
       - name: Validate confirmation
         run: |
-          if [ "${{ inputs.confirm }}" != "${{ inputs.lxc_name }}" ]; then
-            echo "Confirmation failed. You must type '${{ inputs.lxc_name }}' exactly to proceed."
+          if [ "${{ inputs.confirm }}" != "${{ github.ref_name }}" ]; then
+            echo "Confirmation failed. You must type '${{ github.ref_name }}' exactly to proceed."
             exit 1
           fi
 
