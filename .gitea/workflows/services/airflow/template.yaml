@@ -7,9 +7,9 @@ on:
       - dev
       - "feature/**"
     paths:
-      - "ansible/airflow/airflow-template.yaml"
-      - "ansible/airflow/docker-compose.yaml"
-      - ".gitea/workflows/airflow/airflow-template.yaml"
+      - "services/airflow/ansible/airflow-template.yaml"
+      - "services/airflow/docker-compose.yaml"
+      - ".gitea/workflows/services/airflow/template.yaml"
   workflow_dispatch:
 
 jobs:
