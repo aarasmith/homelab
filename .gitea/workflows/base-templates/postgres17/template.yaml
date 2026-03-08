@@ -1,0 +1,22 @@
+name: base-templates | postgres17 | template
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+    paths:
+      - "base-templates/postgres17/postgres17-template.yaml"
+      - ".gitea/workflows/base-templates/postgres17/template.yaml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.gitea/workflows/common/lxc-template.yaml
+    with:
+      playbook: base-templates/postgres17/postgres17-template.yaml
+      lxc_name: postgres17
+      template_name: postgres17-debian12
+      base_template: debian-12-standard_12.12-1_amd64.tar.zst
+      unprivileged: true
+    secrets: inherit

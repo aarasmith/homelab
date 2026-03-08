@@ -1,0 +1,101 @@
+---
+- name: Update Traefik/Authelia configuration
+  hosts: lxc
+  become: yes
+  vars:
+    remote_dir: /docker
+    service_dir: "{{ playbook_dir }}/.."
+
+  vars_files:
+    - "{{ playbook_dir }}/vault.yaml"
+
+  tasks:
+
+    - name: Ensure remote directory exists
+      file:
+        path: "{{ remote_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Ensure Traefik rules directory exists
+      file:
+        path: "{{ remote_dir }}/appdata/traefik/rules"
+        state: directory
+        mode: '0755'
+
+    - name: Decrypt vault file in place
+      ansible.builtin.shell: |
+        echo "$ANSIBLE_VAULT_PASSWORD" > /tmp/vault_pass.txt
+        ansible-vault decrypt {{ playbook_dir }}/vault.yaml --vault-password-file /tmp/vault_pass.txt
+        ansible-vault decrypt {{ service_dir }}/authelia/access_control.yaml --vault-password-file /tmp/vault_pass.txt
+        rm -f /tmp/vault_pass.txt
+      delegate_to: localhost
+      run_once: true
+      environment:
+        ANSIBLE_VAULT_PASSWORD: "{{ lookup('env', 'ANSIBLE_VAULT_PASSWORD') }}"
+
+    - name: Prefix DOMAIN with dev. if not main branch
+      ansible.builtin.shell: |
+        sed -i 's/^DOMAIN:.*/DOMAIN: dev.{{ DOMAIN }}/' {{ playbook_dir }}/vault.yaml
+      delegate_to: localhost
+      run_once: true
+      when: lookup('env', 'GITHUB_REF_NAME') != 'main'
+
+    - name: Run frender on rules directory with decrypted vault
+      ansible.builtin.shell: |
+        frender {{ service_dir }}/authelia/access_control.yaml -ow --env-file "{{ playbook_dir }}/vault.yaml"
+        frender -d {{ service_dir }}/authelia -r -ow --env-file "{{ playbook_dir }}/vault.yaml" --env-file "{{ service_dir }}/authelia/access_control.yaml"
+        frender -d {{ service_dir }}/rules -r -ow --env-file "{{ playbook_dir }}/vault.yaml"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Run frender on authelia directory with decrypted vault
+      ansible.builtin.command: >
+        frender -d {{ service_dir }}/authelia -r -ow --env-file "{{ playbook_dir }}/vault.yaml"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Copy Traefik rules directory
+      copy:
+        src: "{{ service_dir }}/rules"
+        dest: "{{ remote_dir }}/appdata/traefik"
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy Authelia access controls
+      copy:
+        src: "{{ service_dir }}/authelia/access_control.yaml"
+        dest: "{{ remote_dir }}/appdata/authelia/access_control.yaml"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copy Authelia configuration
+      copy:
+        src: "{{ service_dir }}/authelia/configuration.yml"
+        dest: "{{ remote_dir }}/appdata/authelia/configuration.yml"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copy Crowdsec acquis.yaml
+      copy:
+        src: "{{ service_dir }}/crowdsec/acquis.yaml"
+        dest: "{{ remote_dir }}/appdata/crowdsec/config/acquis.yaml"
+        mode: '0644'
+
+    - name: Restart Authelia
+      ansible.builtin.command:
+        cmd: docker compose restart authelia
+        chdir: "{{ remote_dir }}"
+
+    - name: Restart Traefik
+      ansible.builtin.command:
+        cmd: docker compose restart traefik
+        chdir: "{{ remote_dir }}"
+
+    - name: Restart CrowdSec to pick up acquis changes
+      ansible.builtin.command:
+        cmd: docker compose restart crowdsec
+        chdir: "{{ remote_dir }}"

@@ -1,0 +1,23 @@
+name: services | traefik | update-proxy-config
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "services/traefik/rules/**"
+      - "services/traefik/authelia/access_control.yaml"
+      - "services/traefik/authelia/configuration.yml"
+      - "services/traefik/crowdsec/acquis.yaml"
+  workflow_dispatch:
+
+jobs:
+  update-traefik:
+    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: traefik
+      playbook: services/traefik/ansible/traefik-update.yaml
+    secrets: inherit
+    

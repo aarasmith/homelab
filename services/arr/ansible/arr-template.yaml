@@ -1,0 +1,40 @@
+---
+- name: Deploy Docker Compose stack to remote host
+  hosts: lxc
+  become: yes
+  vars:
+    remote_dir: /docker
+    service_dir: "{{ playbook_dir }}/.."
+    compose_file: docker-compose.yaml
+    docker_images:
+      - ghcr.io/linuxserver/prowlarr:develop
+      - lscr.io/linuxserver/sonarr:latest
+      - lscr.io/linuxserver/radarr:latest
+      - lscr.io/linuxserver/sabnzbd:latest
+
+  tasks:
+    - name: Ensure remote directory exists
+      file:
+        path: "{{ remote_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose.yaml to remote host
+      copy:
+        src: "{{ service_dir }}/{{ compose_file }}"
+        dest: "{{ remote_dir }}/{{ compose_file }}"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Pre-pull required images
+      community.docker.docker_image:
+        name: "{{ item }}"
+        source: pull
+      loop: "{{ docker_images }}"
+
+    - name: Start Docker Compose stack
+      ansible.builtin.command:
+        cmd: docker compose up -d
+        chdir: "{{ remote_dir }}"
+

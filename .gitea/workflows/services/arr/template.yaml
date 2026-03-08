@@ -1,0 +1,25 @@
+name: services | arr | template
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "feature/**"
+    paths:
+      - "services/arr/ansible/arr-template.yaml"
+      - "services/arr/docker-compose.yaml"
+      - ".gitea/workflows/services/arr/template.yaml"
+  workflow_dispatch:
+
+jobs:
+  create-template:
+    uses: ./.gitea/workflows/common/lxc-template.yaml
+    with:
+      playbook: services/arr/ansible/arr-template.yaml
+      lxc_name: arr
+      template_name: arr-debian12
+      base_template: docker-debian12.tar.gz
+      enable_docker: true
+      unprivileged: true
+    secrets: inherit

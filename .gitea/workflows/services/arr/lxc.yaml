@@ -1,0 +1,53 @@
+name: services | arr | lxc
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "feature/**"
+    paths:
+      - ".gitea/workflows/services/arr/lxc.yaml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.gitea/workflows/common/lxc-terraform.yaml
+    with:
+      target_node: "mother"
+      lxc_name: arr
+      base_template: arr-debian12.tar.gz
+      vmid: "301"
+      ip: "10.1.1.20/24"
+      memory: "2048"
+      cores: "1"
+      storage_size: "16G"
+      enable_docker: true
+      unprivileged: true
+    secrets: inherit
+  
+  post-deploy:
+    needs: deploy
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      vmid: "301"
+    secrets: inherit
+       
+  add-mount:
+    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+    needs: post-deploy
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: arr
+      playbook: ansible/common/add-unprivileged-nfs-mount.yaml
+    secrets: inherit
+
+  start-containers:
+    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+    needs: post-deploy
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: arr
+      playbook: ansible/common/start-docker-containers.yaml
+    secrets: inherit
+    

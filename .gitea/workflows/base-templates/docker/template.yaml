@@ -1,0 +1,22 @@
+name: base-templates | docker | template
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+    paths:
+      - "base-templates/docker/template.yaml"
+      - ".gitea/workflows/base-templates/docker/template.yaml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.gitea/workflows/common/lxc-template.yaml
+    with:
+      playbook: base-templates/docker/docker-template.yaml
+      lxc_name: docker
+      template_name: docker-debian12
+      base_template: debian-12-standard_12.12-1_amd64.tar.zst
+      unprivileged: true
+    secrets: inherit

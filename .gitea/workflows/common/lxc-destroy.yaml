@@ -1,0 +1,72 @@
+name: common | lxc-destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      lxc_name:
+        description: "Name of the LXC to destroy"
+        required: true
+        type: string
+      confirm:
+        description: "Type the current branch name to confirm"
+        required: true
+        type: string
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Validate confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "${{ github.ref_name }}" ]; then
+            echo "Confirmation failed. You must type '${{ github.ref_name }}' exactly to proceed."
+            exit 1
+          fi
+
+      - name: Scope AWS vars to current environment
+        uses: ./.gitea/actions/normalize-aws-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+
+      - name: Scope PVE vars to current environment
+        uses: ./.gitea/actions/normalize-pve-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+
+      - name: Create pve-provider.auto.tfvars
+        run: |
+          cat > terraform/modules/lxc/pve-provider.auto.tfvars <<EOF
+          pm_user         = "${PVE_USER}"
+          pm_password     = "${PVE_PASSWORD}"
+          pm_api_url      = "${PVE_API_URL}"
+          EOF
+
+      - name: Generate backend.tf
+        run: |
+          cat > terraform/modules/lxc/backend.tf <<EOF
+          terraform {
+            backend "s3" {
+              bucket = "${AWS_TF_BACKEND_BUCKET}"
+              region = "${{ vars.AWS_REGION }}"
+              key    = "${{ inputs.lxc_name }}.tfstate"
+            }
+          }
+          EOF
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform/modules/lxc init -input=false
+
+      - name: Terraform Destroy
+        run: terraform -chdir=terraform/modules/lxc destroy -auto-approve -input=false

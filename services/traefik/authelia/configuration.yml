@@ -1,0 +1,108 @@
+###############################################################
+#                   Authelia configuration                    #
+###############################################################
+
+host: 0.0.0.0
+port: 9091
+# log_level: warn
+
+# This secret can also be set using the env variables AUTHELIA_JWT_SECRET_FILE
+# I used this site to generate the secret: https://www.grc.com/passwords.htm
+jwt_secret: {{ AUTHELIA_JWT_SECRET }} # use docker secret file instead AUTHELIA_JWT_SECRET_FILE
+
+# https://docs.authelia.com/configuration/miscellaneous.html#default-redirection-url
+default_redirection_url: https://auth.{{ DOMAIN }}
+
+totp:
+  issuer: authelia.com
+  period: 30
+  skew: 1
+
+# Enable the following for Duo Push Notification support
+# https://www.authelia.com/docs/features/2fa/push-notifications.html
+duo_api:
+  disable: false
+  enable_self_enrollment: true
+  hostname: {{ DUO_HOSTNAME }}
+  integration_key: {{ DUO_INTEGRATION_KEY }}
+#  # This secret can also be set using the env variables AUTHELIA_DUO_API_SECRET_KEY_FILE
+  secret_key: {{ DUO_SECRET_KEY }}
+# use docker secret file instead AUTHELIA_DUO_API_SECRET_KEY_FILE
+
+authentication_backend:
+  file:
+    path: /config/users_database.yml
+    # customize passwords based on https://docs.authelia.com/configuration/authentication/file.html
+    password:
+      algorithm: sha512
+      iterations: 50000
+      salt_length: 16
+      memory: 128 # blocks this much of the RAM. Tune this.
+
+# https://docs.authelia.com/configuration/access-control.html
+access_control:
+  default_policy: deny
+  rules:
+    # Rules applied to everyone
+    - domain: auth.{{ DOMAIN }}
+      policy: bypass
+    {%- for rule in access_control.rules %}
+    {%- for key, value in rule.items() %}
+    {% if loop.first %}- {{ key }}: {{ value }}
+    {%- else %}  {{ key }}: {{ value }}
+    {%- endif %}
+    {%- endfor %}
+    {%- endfor %}
+    - domain: "*.{{ DOMAIN }}"
+      policy: two_factor
+    - domain: "{{ DOMAIN }}"
+      policy: two_factor
+session:
+  name: authelia_session
+  # This secret can also be set using the env variables AUTHELIA_SESSION_SECRET_FILE
+  # Used a different secret, but the same site as jwt_secret above.
+  secret: {{ AUTHELIA_SESSION_SECRET }}
+  expiration: 86400 # 24 hours
+  inactivity: 14400 # 4 hours
+  domain: {{ DOMAIN }} # Should match whatever your root protected domain is
+
+# Optional. Can improve performance on a busy system. If not enabled, session info is stored in memory.
+  redis:
+    host: authelia_redis
+    port: 6379
+    # This secret can also be set using the env variables AUTHELIA_SESSION_REDIS_PASSWORD_FILE
+    password: {{ AUTHELIA_PG_PASS }}
+
+regulation:
+  max_retries: 10
+  find_time: 120
+  ban_time: 300
+
+storage:
+  encryption_key: {{ AUTHELIA_PG_ENCRYPTION_KEY }}
+  postgres:
+    host: authelia_postgres
+    port: 5432
+    database: {{ AUTHELIA_PG_DB }}
+    username: {{ AUTHELIA_PG_USER }}
+    # Password can also be set using a secret: https://docs.authelia.com/configuration/secrets.html
+    password: {{ AUTHELIA_PG_PASS }}
+
+notifier:
+  smtp:
+    username: {{ SMTP_USERNAME }}
+    # This secret can also be set using the env variables AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE
+    password: {{ SMTP_PASSWORD }}
+    host: {{ SMTP_HOST }}
+    port: 587 #465
+    sender: {{ SMTP_SENDER_EMAIL }}
+
+log:
+  level: info
+  format: json
+  file_path: "/var/log/authelia/authelia.log"
+  keep_stdout: true
+
+ntp:
+  max_desync: 5s
+  disable_failure: true

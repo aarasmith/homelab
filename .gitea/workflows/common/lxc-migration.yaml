@@ -1,4 +1,4 @@
-name: Run Ansible Migration Playbook
+name: common | lxc-migration
 
 on:
   workflow_call:

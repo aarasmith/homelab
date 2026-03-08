@@ -1,0 +1,75 @@
+---
+- name: Install and configure PostgreSQL 17 on lxc-template
+  hosts: lxc
+  become: yes
+  
+  tasks:
+    - name: Update apt cache and upgrade all packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Import PostgreSQL GPG key
+      ansible.builtin.shell: |
+        curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | tee /usr/share/keyrings/postgresql.asc
+      args:
+        creates: /usr/share/keyrings/postgresql.asc
+
+    - name: Add PostgreSQL APT repository
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/postgresql.asc] https://apt.postgresql.org/pub/repos/apt/ {{ ansible_distribution_release | lower }}-pgdg main"
+        state: present
+        filename: "pgdg"
+
+    - name: Install PostgreSQL 17
+      apt:
+        name: postgresql-17
+        state: present
+        update_cache: yes
+
+    - name: Ensure PostgreSQL service is started and enabled
+      systemd:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    - name: Allow remote connections (optional)
+      lineinfile:
+        path: /etc/postgresql/17/main/pg_hba.conf
+        regexp: '^host\s+all\s+all\s+0.0.0.0/0\s+md5'
+        line: 'host    all             all             0.0.0.0/0               md5'
+        state: present
+
+    - name: Listen on all IP addresses (optional)
+      lineinfile:
+        path: /etc/postgresql/17/main/postgresql.conf
+        regexp: '^#listen_addresses = .*$'
+        line: "listen_addresses = '*'"
+        state: present
+
+    - name: Restart PostgreSQL to apply changes
+      systemd:
+        name: postgresql
+        state: restarted
+
+    - name: Remove /var/spool/postfix/dev/random
+      file:
+        path: /var/spool/postfix/dev/random
+        state: absent
+
+    - name: Remove /var/spool/postfix/dev/urandom
+      file:
+        path: /var/spool/postfix/dev/urandom
+        state: absent
+
