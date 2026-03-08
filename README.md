@@ -147,7 +147,7 @@ Migration playbooks live at `services/<name>/ansible/<name>-migration.yaml` and 
 
 ### Proxy
 
-The `ansible/traefik` folder contains a customizable reverse proxy setup. It quickly stands up a traefik instance that uses a docker socket proxy for security, configures crowdsec to monitor for malicious activity - automatically registering a cloudflare bouncer and a traefik bouncer, and an authelia instance for authentication with a postgres/redis backend to allow for scaling, an SMTP setup for emailing password resets, and Duo integration for 2-factor-authentication via push notification.
+The `services/traefik` folder contains a customizable reverse proxy setup. It quickly stands up a traefik instance that uses a docker socket proxy for security, configures crowdsec to monitor for malicious activity - automatically registering a cloudflare bouncer and a traefik bouncer, and an authelia instance for authentication with a postgres/redis backend to allow for scaling, an SMTP setup for emailing password resets, and Duo integration for 2-factor-authentication via push notification.
 
 When adding new services, they should be added to the proxy configuration and an update workflow will run automatically to apply the changes.
 
