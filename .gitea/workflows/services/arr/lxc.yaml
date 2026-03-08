@@ -50,3 +50,4 @@ jobs:
       lxc_name: arr
       playbook: ansible/common/start-docker-containers.yaml
     secrets: inherit
+    
