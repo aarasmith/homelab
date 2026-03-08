@@ -80,7 +80,7 @@ http:
       service: dns-service
       middlewares:
         - chain-authelia@file
-    dns-router:
+    airflow-router:
       entryPoints:
         - "http"
         - "https"
