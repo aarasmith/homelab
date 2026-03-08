@@ -1,6 +1,24 @@
-# homelab
+# Homelab
 This repository is for provisioning local/cloud infrastructure with terraform on Proxmox/AWS and building/deploying/managing it with ansible. Everything is orchestrated by and runs on CI/CD using the `gitea-runner-tools` container from the `runners` repo.
-## Prerecs
+
+## Physical infrastructure
+The current configuration is:
+- A production 3-node Proxmox cluster with 2 Lenovo m720q's and an HP elitedesk 800 g4 all with 8th gen i5's.
+  - The lenovo's have each have a dual 10Gbe NIC installed to handle inter-cluster traffic. This is point-to-point routed to remove the need for a 10Gbe switch.
+  - The lenovos are designed to absorb each other's load if a node goes down. ZFS replication is done every 15 minutes to allow quick failover with minimal data loss
+  - The HP has a desktop i5 rather than the low-power "T" versions in the lenovos - so it is used for workloads that require higher single core performance like databases.
+  - All 3 nodes have 64GB RAM, 6 Cores, 256GB 2.5" SSD boot drives, and 1TB NVMe's for VM/LXC storage. This allows seamless switching between nodes.
+- A Truenas core box running on an HP Microserver Gen8 serving as network storage with 4 10TB SAS drives running RAIDZ1 for 30TB usable
+  - The SAS drives connect to an HBA installed in the PCIe slot with 1 external port for future expansion to a DAS or a tape drive.
+  - 2 480GB SSD's are connected to the onboard SATA controller as mirrored vdevs for the metadata are crammed where the optical drive used to be
+  - It has 16GB ECC RAM and an 256GB SSD boot drive
+- A single lenovo m720q node as a DEV PVE node for testing
+  - i5 6 cores, 16GB RAM, 256GB SSD, and 256GB NVMe
+- A Proxmox Backup Server running on another lenovo m720q with an i3, 128GB NVMe boot drive, and 1TB SSD with power loss protection 
+
+![physical infrastructure](docs/images/homelab.jpg)
+
+## Prerequisites
 ### CI/CD runner image
 You must specify in the repo vars as `RUNNER_IMAGE` a container image you have access to that has terraform, ansible, and nodejs installed. This also uses a CLI jinja2 template rendering tool, `frender`, that is preinstalled. Example:
 ```
@@ -17,9 +35,12 @@ PVE_PASSWORD=<proxmox password>
 LXC_PASSWORD=<password for LXC's>
 MASTER_SSH_PUBLIC_KEY=<public key to place on built infra>
 MASTER_SSH_PRIVATE_KEY=<private key to access built infra>
+ANSIBLE_VAULT_PASSWORD=<password for ansible-vault encrypted files>
 ```
 
 Ensure that the public key is also added to the PVE host as ansible needs to run a few commands on the host to dump template builder LXCs to a vzdump and rename the file.
+
+Dev/feature branches use the same secrets suffixed with `_DEV` where applicable (e.g. `PVE_USER_DEV`, `PVE_PASSWORD_DEV`).
 
 ### Variables
 The following repo variables are required:
@@ -28,57 +49,109 @@ The following repo variables are required:
 AWS_REGION=<aws region for backend bucket/any aws infra>
 AWS_TF_BACKEND_BUCKET=<pre-existing S3 bucket name for your terraform state files>
 GATEWAY=<the network gateway ip>
-TEMPLATES_DIR=<directory where templates are saved on node e.g. /mnt/pve/local/template/cache
 RUNNER_IMAGE=<address of image for actions runner e.g. git.arasmith.org/admin/gitea-runner-tools:latest>
 PVE_NODE_IP=<ip address of the proxmox node you're building on>
 PVE_DISK_STORAGE=<the storage for the lxc disks>
 PVE_NODE_NAME=<name of the node to build on>
 PVE_API_URL=<example: https://10.1.1.100:8006/api2/json>
+PVE_TEMPLATES_DIR=<directory where templates are saved on node e.g. /mnt/pve/local/template/cache
+```
+
+## Repository Structure
+
+```
+├── ansible/
+│   ├── ansible.cfg
+│   └── common/               # Shared ansible playbooks used across services
+├── base-templates/           # Reusable LXC base images that services build on top of
+├── services/                 # Individual service configurations/data - essentially mini repos
+├── terraform/
+│   └── modules/
+│       └── lxc/              # Reusable Terraform module for provisioning LXCs
+└── .gitea/
+    ├── actions/              # Reusable composite actions
+    └── workflows/
+        ├── base-templates/   # Workflows for building base template LXCs
+        ├── common/           # Reusable callable workflows
+        └── services/         # Per-service workflows
+```
+
+Each service under `services/` follows this structure:
+```
+services/<name>/
+├── ansible/
+│   ├── <playbook>.yaml       # Ansible playbooks for provisioning/updating/managing/migrating
+│   └── vault.yaml            # Ansible-vault encrypted secrets (if needed)
+├── docker-compose.yaml       # (optional) Docker Compose config
+└── ...                       # Any other service-specific config files
 ```
 
 ## Usage
-### Templates
-To create a new lxc template for a service, add an ansible playbook to the `ansible/<service>` folder named `<service>-template.yaml`. Ensure that the `hosts` field is `lxc_template`.
 
-Now copy an existing template workflow and save a new `<service>-template.yaml` workflow. Change the `paths` for the ansible template and the workflow like in this:
-```
-paths:
-    - "ansible/<service>/<service>-template.yaml"
-    - ".gitea/workflows/<service>/<service>-template.yaml"
+### Base Templates
+Base templates are reusable LXC images that service templates build on top of (e.g. `docker-debian12`, `postgres17-debian12`). Their ansible playbooks live in `base-templates/<name>/` and their workflows in `.gitea/workflows/base-templates/<name>/template.yaml`.
+
+### Adding a new service template
+1. Create a service directory at `services/<name>/`
+2. Add an ansible playbook at `services/<name>/ansible/<name>-template.yaml` with `hosts: lxc`
+3. Add a workflow at `.gitea/workflows/services/<name>/template.yaml` that calls `.gitea/workflows/common/lxc-template.yaml`:
+
+```yaml
+jobs:
+  create-template:
+    uses: ./.gitea/workflows/common/lxc-template.yaml
+    with:
+      playbook: services/<name>/ansible/<name>-template.yaml
+      lxc_name: <name>
+      template_name: <name>-debian12
+      base_template: docker-debian12.tar.gz  # or another base template
+      enable_docker: true # whether to enable keyctl and nesting features in the lxc to allow docker
+      unprivileged: true
+    secrets: inherit
 ```
 
-Change the inputs as necessary
-```
-with:
-    lxc-name: docker #name of the service
-    template-name: docker-debian12 #this is what the template will be saved as
-    ostemplate: local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst #the base template to start with
-    unprivileged: true #whether the lxc should be unprivileged
-    enable_docker: true #whether to enable keyctl and nesting features in the lxc to allow docker
+### Deploying a service LXC
+Create a workflow at `.gitea/workflows/services/<name>/lxc.yaml` that calls `.gitea/workflows/common/lxc-terraform.yaml`:
+
+```yaml
+jobs:
+  deploy:
+    uses: ./.gitea/workflows/common/lxc-terraform.yaml
+    with:
+      target_node: <PVE node name>
+      lxc_name: <name>
+      base_template: <name>-debian12.tar.gz
+      vmid: "<vmid>"
+      ip: "10.1.1.<x>/24"
+      memory: "2048"
+      cores: "1"
+      storage_size: "16G"
+      enable_docker: true
+      unprivileged: true
+    secrets: inherit
 ```
 
-### LXC's
-The simplest way to provision and deploy LXC's is to create a template that includes all your setup via ansible and then creating another workflow that calls the common `lxc-terraform.yaml` workflow located in the `.gitea/workflows/common` folder. This workflow should be saved as `.gitea/workflows/<service>/<service>-lxc.yaml`.
+### Destroying a service LXC
+Trigger `.gitea/workflows/common/lxc-destroy.yaml` manually via `workflow_dispatch`. You will be prompted for the LXC name and must type the current branch name as confirmation to proceed.
 
-The `lxc-terraform` workflow takes the following arguments:
-```
-  target_node   = <Name of the node to build on>
-  lxc_name      = <Name of the service>
-  base_template = <lbase OS template e.g. "docker-debian12.tar.gz">
-  vmid          = <vmid - null for auto assign>
-  ip            = <static IP CIDR for the LXC e.g. "10.1.1.100/24">
-  memory        = <RAM in MB>
-  cores         = <CPU cores available to LXC>
-  storage_size  = <e.g. "16G">
-  enable_docker = <true/false enable keyctl and nesting>
-  unprivileged  = <true/false should LXC be unprivileged>
-```
+### Running arbitrary plabooks
+The `.gitea/workflows/common/lxc-ansible.yaml` workflow can be called to run arbitrary ansible playbooks from a service's `ansible` folder. Just provide the name of the lxc and the path to the playbook to be run. This can be called multiple times from a caller workflow to run any number of playbooks
+
+### Migrating a service
+Migration playbooks live at `services/<name>/ansible/<name>-migration.yaml` and are triggered manually via `.gitea/workflows/services/<name>/migration.yaml`. Migration workflows are kept entirely separate from deployment workflows and are never triggered automatically.
+
+## Development Workflow
+- **Feature branches** — LXC templates build and are left running on success for verification, but are not dumped to a template file. Any failure destroys the LXC. LXC deploy jobs will only run `terraform plan` with no apply stage. Dev PVE infrastructure is used.
+- **Dev branch** — Templates are dumped to a file and always destroyed afterwards. Dev PVE infrastructure is used.
+- **Main branch** — Templates are dumped to a file and always destroyed afterwards. Production PVE infrastructure is used.
 
 ### Proxy
 
-The `ansible/traefik` folder contains a customizable reverse proxy setup. It quickly stands up a traefik instance that uses a docker socket proxy for security, configures crowdsec to monitor for malicious activity and automatically registers a cloudflare bouncer and a traefik bouncer, and an authelia instance for authentication with a postgres/redis backend to allow for scaling, an SMTP setup for emailing password resets, and Duo integration for 2-factor-authentication via push notification.
+The `ansible/traefik` folder contains a customizable reverse proxy setup. It quickly stands up a traefik instance that uses a docker socket proxy for security, configures crowdsec to monitor for malicious activity - automatically registering a cloudflare bouncer and a traefik bouncer, and an authelia instance for authentication with a postgres/redis backend to allow for scaling, an SMTP setup for emailing password resets, and Duo integration for 2-factor-authentication via push notification.
 
-All of the static/dynamic/middlewares configurations are in the `./rules` folder along with external-routes.yaml for the actual reverse proxying rules/routes.
+When adding new services, they should be added to the proxy configuration and an update workflow will run automatically to apply the changes.
+
+All of the static/dynamic/middlewares configurations are in the `services/traefik/rules` folder along with external-routes.yaml for the actual reverse proxying rules/routes.
 
 Authelia configs will be jinja rendered with the correct secrets/variables before building. Access_control rules can be added to `access_control.yaml` and encrypted with `ansible-vault` (because some of my ACL's are none of your business). They will get decrypted when building using the `ANSIBLE_VAULT_PASSWORD` repository secret.
 
@@ -108,5 +181,4 @@ DUO_HOSTNAME:
 DUO_INTEGRATION_KEY:
 DUO_SECRET_KEY:
 ```
-### Development workflow
-When working out of feature branches, LXC templates will build and not destroy when successful so that they can be verified. However it will not dump to a template file. If any step fails it will destroy the LXC. In the dev and main branches it will dump to a template file and always be destroyed afterwards. Dev and feature branches will use repo secrets and variables suffixed with `_DEV`
+
