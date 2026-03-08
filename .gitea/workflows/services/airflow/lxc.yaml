@@ -17,7 +17,7 @@ jobs:
       target_node: "mother"
       lxc_name: airflow
       base_template: airflow-debian12.tar.gz
-      vmid: "302"
+      vmid: "303"
       ip: ${{ github.ref_name == 'main' && '10.1.1.30/24' || '10.1.1.130/24' }}
       memory: "4096"
       cores: "2"
