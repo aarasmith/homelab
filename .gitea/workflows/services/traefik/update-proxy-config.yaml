@@ -10,6 +10,8 @@ on:
       - "services/traefik/authelia/access_control.yaml"
       - "services/traefik/authelia/configuration.yml"
       - "services/traefik/crowdsec/acquis.yaml"
+      - "services/traefik/routes.yaml"
+      - "services/traefik/docker-compose.yaml"
   workflow_dispatch:
 
 jobs:
