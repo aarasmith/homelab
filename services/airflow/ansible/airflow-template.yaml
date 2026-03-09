@@ -121,7 +121,6 @@
         mode: '0700'
 
     - name: Pre-pull required images
-      community.docker.docker_image:
-        name: "{{ item }}"
-        source: pull
+      ansible.builtin.shell: |
+        docker pull {{ item }}
       loop: "{{ docker_images }}"
