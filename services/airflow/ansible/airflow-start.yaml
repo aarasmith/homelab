@@ -1,6 +1,6 @@
 ---
 # This playbook runs after lxc-terraform spins up the LXC from template.
-# It writes the .env from vault secrets and starts the Docker Compose stack.
+# It writes the .env from vault secrets, initialises the database, and starts the stack.
 - name: Configure and start Airflow stack
   hosts: lxc
   become: yes
@@ -11,6 +11,15 @@
     - "{{ playbook_dir }}/vault.yaml"
 
   tasks:
+    - name: Ensure DAGs and logs directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /docker/airflow/dags
+        - /docker/airflow/logs
+
     - name: Write .env from vault secrets
       copy:
         dest: "{{ remote_dir }}/.env"
@@ -18,16 +27,50 @@
         group: root
         mode: '0600'
         content: |
-          AIRFLOW_PG_USER={{ AIRFLOW_PG_USER }}
-          AIRFLOW_PG_PASS={{ AIRFLOW_PG_PASS }}
-          AIRFLOW_PG_DB={{ AIRFLOW_PG_DB }}
-          AIRFLOW_FERNET_KEY={{ AIRFLOW_FERNET_KEY }}
-          AIRFLOW_SECRET_KEY={{ AIRFLOW_SECRET_KEY }}
-          AIRFLOW_ADMIN_USER={{ AIRFLOW_ADMIN_USER }}
-          AIRFLOW_ADMIN_PASS={{ AIRFLOW_ADMIN_PASS }}
-          AIRFLOW_ADMIN_EMAIL={{ AIRFLOW_ADMIN_EMAIL }}
+          AIRFLOW_PG_USER="{{ AIRFLOW_PG_USER }}"
+          AIRFLOW_PG_PASS="{{ AIRFLOW_PG_PASS }}"
+          AIRFLOW_PG_DB="{{ AIRFLOW_PG_DB }}"
+          AIRFLOW_FERNET_KEY="{{ AIRFLOW_FERNET_KEY }}"
+          AIRFLOW_SECRET_KEY="{{ AIRFLOW_SECRET_KEY }}"
+          AIRFLOW_ADMIN_USER="{{ AIRFLOW_ADMIN_USER }}"
+          AIRFLOW_ADMIN_PASS="{{ AIRFLOW_ADMIN_PASS }}"
+          AIRFLOW_ADMIN_EMAIL="{{ AIRFLOW_ADMIN_EMAIL }}"
 
-    - name: Start Docker Compose stack
+    - name: Start postgres
+      ansible.builtin.command:
+        cmd: docker compose up -d airflow-postgres
+        chdir: "{{ remote_dir }}"
+
+    - name: Wait for postgres to be healthy
+      ansible.builtin.command:
+        cmd: docker inspect --format="{{ '{{' }}.State.Health.Status{{ '}}' }}" airflow-postgres
+      register: pg_health
+      until: pg_health.stdout == "healthy"
+      retries: 20
+      delay: 5
+
+    - name: Run db migrate
+      ansible.builtin.command:
+        cmd: docker compose run --rm airflow-webserver airflow db migrate
+        chdir: "{{ remote_dir }}"
+
+    - name: Create admin user
+      ansible.builtin.command:
+        cmd: >
+          docker compose run --rm airflow-webserver airflow users create
+          --username "{{ AIRFLOW_ADMIN_USER }}"
+          --password "{{ AIRFLOW_ADMIN_PASS }}"
+          --firstname Admin
+          --lastname User
+          --role Admin
+          --email "{{ AIRFLOW_ADMIN_EMAIL }}"
+        chdir: "{{ remote_dir }}"
+      register: user_create
+      failed_when:
+        - user_create.rc != 0
+        - "'already exists' not in user_create.stdout"
+
+    - name: Start remaining services
       ansible.builtin.command:
         cmd: docker compose up -d
         chdir: "{{ remote_dir }}"

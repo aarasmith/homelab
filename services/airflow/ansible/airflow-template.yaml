@@ -7,7 +7,7 @@
     remote_dir: /docker
     compose_file: docker-compose.yaml
     docker_images:
-      - apache/airflow:2.9.3
+      - git.arasmith.org/admin/airflow:latest
       - postgres:16-alpine
 
   vars_files:

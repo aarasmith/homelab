@@ -4,13 +4,9 @@ networks:
 volumes:
   airflow_postgres:
     driver: local
-  airflow_logs:
-    driver: local
-  airflow_dags:
-    driver: local
 
 x-airflow-common: &airflow-common
-  image: apache/airflow:2.9.3
+  image: git.arasmith.org/admin/airflow:latest
   restart: unless-stopped
   networks:
     - airflow
@@ -25,8 +21,8 @@ x-airflow-common: &airflow-common
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
     AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
   volumes:
-    - airflow_dags:/opt/airflow/dags
-    - airflow_logs:/opt/airflow/logs
+    - /docker/airflow/dags:/opt/airflow/dags
+    - /docker/airflow/logs:/opt/airflow/logs
   depends_on:
     airflow-postgres:
       condition: service_healthy
@@ -51,23 +47,6 @@ services:
       POSTGRES_PASSWORD: ${AIRFLOW_PG_PASS}
       POSTGRES_DB: ${AIRFLOW_PG_DB}
 
-  airflow-init:
-    <<: *airflow-common
-    container_name: airflow-init
-    restart: "no"
-    entrypoint: /bin/bash
-    command:
-      - -c
-      - |
-        airflow db migrate
-        airflow users create \
-          --username ${AIRFLOW_ADMIN_USER} \
-          --password ${AIRFLOW_ADMIN_PASS} \
-          --firstname Admin \
-          --lastname User \
-          --role Admin \
-          --email ${AIRFLOW_ADMIN_EMAIL} || true
-
   airflow-webserver:
     <<: *airflow-common
     container_name: airflow-webserver
@@ -79,11 +58,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    depends_on:
-      airflow-postgres:
-        condition: service_healthy
-      airflow-init:
-        condition: service_completed_successfully
     command: webserver
 
   airflow-scheduler:
@@ -95,11 +69,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    depends_on:
-      airflow-postgres:
-        condition: service_healthy
-      airflow-init:
-        condition: service_completed_successfully
     command: scheduler
 
   airflow-triggerer:
@@ -111,9 +80,4 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    depends_on:
-      airflow-postgres:
-        condition: service_healthy
-      airflow-init:
-        condition: service_completed_successfully
     command: triggerer

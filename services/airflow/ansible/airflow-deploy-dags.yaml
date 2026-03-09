@@ -1,0 +1,15 @@
+---
+- name: Deploy DAGs to Airflow
+  hosts: lxc
+  become: yes
+  vars:
+    service_dir: "{{ playbook_dir }}/.."
+
+  tasks:
+    - name: Sync DAGs to host
+      ansible.builtin.copy:
+        src: "{{ service_dir }}/dags/"
+        dest: /docker/airflow/dags/
+        owner: root
+        group: root
+        mode: '0644'
