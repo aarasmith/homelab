@@ -53,6 +53,19 @@ jobs:
           pm_api_url      = "${PVE_API_URL}"
           EOF
 
+      - name: Create dummy vars to satisfy variable validation
+        run: |
+          cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
+          hostname       = "destroy"
+          ostemplate     = "local:vztmpl/destroy"
+          target_node    = "destroy"
+          lxc_password   = "destroy"
+          ssh_public_key = "destroy"
+          storage        = "destroy"
+          gateway        = "0.0.0.0"
+          unprivileged   = true
+          EOF
+
       - name: Generate backend.tf
         run: |
           cat > terraform/modules/lxc/backend.tf <<EOF
