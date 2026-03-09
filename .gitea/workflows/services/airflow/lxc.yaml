@@ -41,4 +41,3 @@ jobs:
       lxc_name: airflow
       playbook: services/airflow/ansible/airflow-start.yaml
     secrets: inherit
-    
