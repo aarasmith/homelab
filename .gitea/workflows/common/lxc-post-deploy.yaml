@@ -36,12 +36,6 @@ jobs:
           vars_json: ${{ toJson(vars) }}
           target_node: ${{ env.LXC_NODE }}
 
-      - name: Lookup LXC IP
-        uses: ./.gitea/actions/lookup-lxc-ip
-        with:
-          lxc_node_ip: ${PVE_NODE_IP}
-          vmid: ${LXC_VMID}
-
       - name: Ensure LXC is running
         run: ssh -oBatchMode=yes root@${PVE_NODE_IP} "pct start ${LXC_VMID} || true"
 
