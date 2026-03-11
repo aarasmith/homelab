@@ -30,7 +30,7 @@ jobs:
     needs: deploy
     uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
     with:
-      vmid: "303"
+      lxc_name: airflow
     secrets: inherit
 
   start:

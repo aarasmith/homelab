@@ -29,7 +29,7 @@ jobs:
     needs: deploy
     uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
     with:
-      vmid: "300"
+      lxc_name: traefik
     secrets: inherit
 
   start-containers:
