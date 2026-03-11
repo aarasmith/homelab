@@ -1,0 +1,25 @@
+name: "Lookup LXC IP"
+description: "Get the IP of a Proxmox LXC via pct exec on the correct node"
+
+inputs:
+  lxc_node_ip:
+    description: "IP address of the node the LXC is running on"
+    required: true
+  vmid:
+    description: "VMID of the LXC to look up"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        IP=$(ssh -oBatchMode=yes root@${{ inputs.lxc_node_ip }} \
+          "pct exec ${{ inputs.vmid }} ip addr show | grep -oP '(?<=inet )10\.1\.1\.\d+'")
+
+        if [ -z "$IP" ]; then
+          echo "ERROR: IP not found for VMID ${{ inputs.vmid }}"
+          exit 1
+        fi
+
+        echo "LXC_IP=$IP" >> $GITHUB_ENV

@@ -32,11 +32,16 @@ jobs:
           ssh-keyscan -H ${PVE_NODE_IP} >> ~/.ssh/known_hosts
           ssh-keyscan -H ${{ inputs.source_host }} >> ~/.ssh/known_hosts
 
-      - name: Lookup destination LXC VMID and IP
-        uses: ./.gitea/actions/lookup-lxc-vmid-ip
+      - name: Lookup destination LXC VMID and node
+        uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
-          pve_node_ip: ${PVE_NODE_IP}
           lxc_name: airflow
+
+      - name: Lookup LXC IP
+        uses: ./.gitea/actions/lookup-lxc-ip
+        with:
+          lxc_node_ip: ${PVE_NODE_IP}
+          vmid: ${LXC_VMID}
 
       - name: Render hosts.ini
         run: |

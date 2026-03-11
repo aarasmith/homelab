@@ -58,18 +58,19 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-      
+
       - name: Scope AWS vars to current environment
         uses: ./.gitea/actions/normalize-aws-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
-      
+
       - name: Scope PVE vars to current environment
         uses: ./.gitea/actions/normalize-pve-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
+          target_node: ${{ github.ref_name == 'main' && inputs.target_node || vars.PVE_DEFAULT_TARGET_NODE_DEV }}
 
       - name: Create pve-provider.auto.tfvars
         run: |
@@ -78,9 +79,8 @@ jobs:
           pm_password     = "${PVE_PASSWORD}"
           pm_api_url      = "${PVE_API_URL}"
           EOF
-      
+
       - name: Create vars.auto.tfvars
-        #note the unquoted variables (numeric/bool)
         run: |
           cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
           lxc_password   = "${{ secrets.LXC_PASSWORD }}"
@@ -98,7 +98,7 @@ jobs:
           enable_docker  = ${{ inputs.enable_docker }}
           unprivileged   = ${{ inputs.unprivileged }}
           EOF
-      
+
       - name: Generate backend.tf
         run: |
           cat > terraform/modules/lxc/backend.tf <<EOF
@@ -111,7 +111,7 @@ jobs:
           }
           EOF
 
-      - name: debug backend.tfvars
+      - name: Debug backend.tf
         run: cat terraform/modules/lxc/backend.tf
 
       - name: Terraform Init
@@ -125,5 +125,4 @@ jobs:
 
       - name: Terraform Apply
         if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-        id: tfout
         run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan
