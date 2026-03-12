@@ -30,7 +30,7 @@ jobs:
     needs: deploy
     uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
     with:
-      vmid: "302"
+      lxc_name: jellyfin-ombi
     secrets: inherit
        
   add-media-mount:

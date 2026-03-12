@@ -14,7 +14,7 @@ The current configuration is:
   - It has 16GB ECC RAM and an 256GB SSD boot drive
 - A single lenovo m720q node as a DEV PVE node for testing
   - i5 6 cores, 16GB RAM, 256GB SSD, and 256GB NVMe
-- A Proxmox Backup Server running on another lenovo m720q with an i3, 128GB NVMe boot drive, and 1TB SSD with power loss protection 
+- A Proxmox Backup Server running on another lenovo m720q with an i3, 128GB NVMe boot drive, and 1TB SSD with power loss protection
 
 ![physical infrastructure](docs/images/homelab.jpg)
 
@@ -31,7 +31,9 @@ The following repo secrets are required:
 AWS_ACCESS_KEY_ID=<access key id to aws for provider>
 AWS_SECRET_ACCESS_KEY=<access key to aws>
 PVE_USER=<proxmox username e.g. some-username@pam>
-PVE_PASSWORD=<proxmox password>
+PVE_PASSWORD=<default proxmox password> #required for the TF provider
+PVE_PASSWORD_<NODE-NAME>=<node proxmox password>
+PVE_PASSWORD_DEV=<dev proxmox password>
 LXC_PASSWORD=<password for LXC's>
 MASTER_SSH_PUBLIC_KEY=<public key to place on built infra>
 MASTER_SSH_PRIVATE_KEY=<private key to access built infra>
@@ -50,12 +52,16 @@ AWS_REGION=<aws region for backend bucket/any aws infra>
 AWS_TF_BACKEND_BUCKET=<pre-existing S3 bucket name for your terraform state files>
 GATEWAY=<the network gateway ip>
 RUNNER_IMAGE=<address of image for actions runner e.g. git.arasmith.org/admin/gitea-runner-tools:latest>
-PVE_NODE_IP=<ip address of the proxmox node you're building on>
+PVE_NODE_IP=<ip address of the default proxmox node (used for templates and lookups)>
+PVE_NODE_IP_<NODE-NAME>=<ip address of each proxmox node>
+PVE_NODE_IP_DEV=<ip address of the dev proxmox node>
 PVE_DISK_STORAGE=<the storage for the lxc disks>
-PVE_NODE_NAME=<name of the node to build on>
+PVE_DEFAULT_TARGET_NODE=<default node name for builds>
 PVE_API_URL=<example: https://10.1.1.100:8006/api2/json>
-PVE_TEMPLATES_DIR=<directory where templates are saved on node e.g. /mnt/pve/local/template/cache
+PVE_TEMPLATES_DIR=<directory where templates are saved on node e.g. /mnt/pve/local/template/cache>
 ```
+
+> **Note:** As of v1.1.0, per-node IP variables (`PVE_NODE_IP_<NODE-NAME>`) are required for service deployments that specify a `target_node`. `PVE_NODE_IP` is still used as the default for templates and cluster-wide lookups.
 
 ## Repository Structure
 
@@ -131,11 +137,15 @@ jobs:
     secrets: inherit
 ```
 
+The `target_node` value determines which physical Proxmox node the LXC is deployed on. On non-`main` branches, all deployments are automatically redirected to the dev node regardless of `target_node`.
+
 ### Destroying a service LXC
 Trigger `.gitea/workflows/common/lxc-destroy.yaml` manually via `workflow_dispatch`. You will be prompted for the LXC name and must type the current branch name as confirmation to proceed.
 
-### Running arbitrary plabooks
-The `.gitea/workflows/common/lxc-ansible.yaml` workflow can be called to run arbitrary ansible playbooks from a service's `ansible` folder. Just provide the name of the lxc and the path to the playbook to be run. This can be called multiple times from a caller workflow to run any number of playbooks
+### Running arbitrary playbooks
+The `.gitea/workflows/common/lxc-ansible.yaml` workflow can be called to run arbitrary ansible playbooks from a service's `ansible` folder. Just provide the name of the lxc and the path to the playbook to be run. This can be called multiple times from a caller workflow to run any number of playbooks.
+
+LXC lookup is now cluster-aware: the workflow resolves which node an LXC is running on automatically and targets that node for SSH and Ansible inventory.
 
 ### Migrating a service
 Migration playbooks live at `services/<name>/ansible/<name>-migration.yaml` and are triggered manually via `.gitea/workflows/services/<name>/migration.yaml`. Migration workflows are kept entirely separate from deployment workflows and are never triggered automatically.
@@ -149,15 +159,15 @@ Migration playbooks live at `services/<name>/ansible/<name>-migration.yaml` and 
 
 The `services/traefik` folder contains a customizable reverse proxy setup. It quickly stands up a traefik instance that uses a docker socket proxy for security, configures crowdsec to monitor for malicious activity - automatically registering a cloudflare bouncer and a traefik bouncer, and an authelia instance for authentication with a postgres/redis backend to allow for scaling, an SMTP setup for emailing password resets, and Duo integration for 2-factor-authentication via push notification.
 
-When adding new services, they should be added to the proxy configuration and an update workflow will run automatically to apply the changes.
+When adding new services, add them to `services/traefik/routes.yaml` and the `update-proxy-config` workflow will apply changes automatically on push to `main` or `dev`. Routes are rendered dynamically — prod and dev IPs are resolved at build time from the routes file.
 
-All of the static/dynamic/middlewares configurations are in the `services/traefik/rules` folder along with external-routes.yaml for the actual reverse proxying rules/routes.
+All of the static/dynamic/middlewares configurations are in the `services/traefik/rules` folder. `external-routes.yaml` is generated dynamically from `routes.yaml` — do not edit it directly.
 
 Authelia configs will be jinja rendered with the correct secrets/variables before building. Access_control rules can be added to `access_control.yaml` and encrypted with `ansible-vault` (because some of my ACL's are none of your business). They will get decrypted when building using the `ANSIBLE_VAULT_PASSWORD` repository secret.
 
-All the other variables and secrets for traefik and supporting apps can also be stored in an ansible-vault encrypted `vault.yaml` file
+All the other variables and secrets for traefik and supporting apps can also be stored in an ansible-vault encrypted `vault.yaml` file.
 
-required vault.yaml vars:
+Required vault.yaml vars:
 ```
 DOMAIN:
 CF_EMAIL:
@@ -182,3 +192,18 @@ DUO_INTEGRATION_KEY:
 DUO_SECRET_KEY:
 ```
 
+### Adding a route to the proxy
+
+Add an entry to `services/traefik/routes.yaml`:
+
+```yaml
+services:
+  myservice:
+    subdomain: myservice
+    prod_ip: 10.1.1.X
+    dev_ip: 10.1.1.Y
+    port: 8080
+    middleware: chain-authelia@file
+```
+
+Pushing this file or `docker-compose.yaml` to `main` or `dev` triggers the `update-proxy-config` workflow automatically.

@@ -39,11 +39,22 @@ jobs:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
 
+      - name: Setup SSH key
+        uses: ./.gitea/actions/setup-ssh
+        with:
+          ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
+
+      - name: Lookup LXC VMID and node
+        uses: ./.gitea/actions/lookup-lxc-vmid-node
+        with:
+          lxc_name: ${{ inputs.lxc_name }}
+
       - name: Scope PVE vars to current environment
         uses: ./.gitea/actions/normalize-pve-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
+          target_node: ${{ env.LXC_NODE }}
 
       - name: Create pve-provider.auto.tfvars
         run: |
@@ -51,6 +62,19 @@ jobs:
           pm_user         = "${PVE_USER}"
           pm_password     = "${PVE_PASSWORD}"
           pm_api_url      = "${PVE_API_URL}"
+          EOF
+
+      - name: Create dummy vars to satisfy variable validation
+        run: |
+          cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
+          hostname       = "destroy"
+          ostemplate     = "local:vztmpl/destroy"
+          target_node    = "destroy"
+          lxc_password   = "destroy"
+          ssh_public_key = "destroy"
+          storage        = "destroy"
+          gateway        = "0.0.0.0"
+          unprivileged   = true
           EOF
 
       - name: Generate backend.tf

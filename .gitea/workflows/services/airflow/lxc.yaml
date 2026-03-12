@@ -1,4 +1,5 @@
-name: services | traefik | lxc
+name: Airflow LXC CI/CD
+
 on:
   push:
     branches:
@@ -6,37 +7,37 @@ on:
       - dev
       - "feature/**"
     paths:
-      - ".gitea/workflows/services/traefik/lxc.yaml"
+      - ".gitea/workflows/services/airflow/lxc.yaml"
   workflow_dispatch:
 
 jobs:
   deploy:
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
-      target_node: "mother"
-      lxc_name: traefik
-      base_template: traefik-debian12.tar.gz
-      vmid: "300"
-      ip: ${{ github.ref_name == 'main' && '10.1.1.10/24' || '10.1.1.110/24' }}
-      memory: "2048"
-      cores: "1"
-      storage_size: "16G"
+      target_node: "fastfood"
+      lxc_name: airflow
+      base_template: airflow-debian12.tar.gz
+      vmid: "303"
+      ip: ${{ github.ref_name == 'main' && '10.1.1.30/24' || '10.1.1.130/24' }}
+      memory: "4096"
+      cores: "2"
+      storage_size: "32G"
       enable_docker: true
       unprivileged: true
     secrets: inherit
-  
+
   post-deploy:
     needs: deploy
     uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
     with:
-      lxc_name: traefik
+      lxc_name: airflow
     secrets: inherit
 
-  start-containers:
+  start:
     if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     needs: post-deploy
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
-      lxc_name: traefik
-      playbook: ansible/common/start-docker-containers.yaml
+      lxc_name: airflow
+      playbook: services/airflow/ansible/airflow-start.yaml
     secrets: inherit

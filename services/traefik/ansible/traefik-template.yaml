@@ -73,17 +73,19 @@
       run_once: true
       when: lookup('env', 'GITHUB_REF_NAME') != 'main'
 
-    - name: Run frender on rules directory with decrypted vault
+    - name: Render authelia configs
       ansible.builtin.shell: |
         frender {{ service_dir }}/authelia/access_control.yaml -ow --env-file "{{ playbook_dir }}/vault.yaml"
         frender -d {{ service_dir }}/authelia -r -ow --env-file "{{ playbook_dir }}/vault.yaml" --env-file "{{ service_dir }}/authelia/access_control.yaml"
-        frender -d {{ service_dir }}/rules -r -ow --env-file "{{ playbook_dir }}/vault.yaml"
       delegate_to: localhost
       run_once: true
 
-    - name: Run frender on authelia directory with decrypted vault
-      ansible.builtin.command: >
-        frender -d {{ service_dir }}/authelia -r -ow --env-file "{{ playbook_dir }}/vault.yaml"
+    - name: Render traefik rules
+      ansible.builtin.shell: |
+        frender -d {{ service_dir }}/rules -r -ow \
+          --env-file "{{ playbook_dir }}/vault.yaml" \
+          --env-file "{{ service_dir }}/routes.yaml" \
+          --var "env={{ 'prod' if lookup('env', 'GITHUB_REF_NAME') == 'main' else 'dev' }}"
       delegate_to: localhost
       run_once: true
 

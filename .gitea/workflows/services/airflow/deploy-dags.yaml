@@ -1,0 +1,18 @@
+name: services | airflow | deploy-dags
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "services/airflow/dags/**"
+  workflow_dispatch:
+
+jobs:
+  deploy-dags:
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: airflow
+      playbook: services/airflow/ansible/airflow-deploy-dags.yaml
+    secrets: inherit

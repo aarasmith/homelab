@@ -1,127 +1,23 @@
 http:
   routers:
-    hdro-router:
+{% for name, svc in services.items() %}
+    {{ name }}-router:
       entryPoints:
         - "http"
         - "https"
-      rule: "Host(`hdro.{{ DOMAIN }}`)"
-      service: hdro-service
+      rule: "Host(`{{ svc.subdomain }}.{{ DOMAIN }}`)"
+      service: {{ name }}-service
       middlewares:
-        - chain-authelia@file
-    jellyfin-router:
-      entryPoints:
-        - "http"
-        - "https"
-      rule: "Host(`jellyfin.{{ DOMAIN }}`)"
-      service: jellyfin-service
-      middlewares:
-        - chain-authelia@file
-    wiki-router:
-      entryPoints:
-        - "http"
-        - "https"
-      rule: "Host(`wiki.{{ DOMAIN }}`)"
-      service: wiki-service
-      middlewares:
-        - chain-authelia@file
-    ombi-router:
-      entryPoints:
-        - "http"
-        - "https"
-      rule: "Host(`ombi.{{ DOMAIN }}`)"
-      service: ombi-service
-      middlewares:
-        - chain-authelia@file
-    prowlarr-router:
-      entryPoints:
-        - "http"
-        - "https"
-      rule: "Host(`prowlarr.{{ DOMAIN }}`)"
-      service: prowlarr-service
-      middlewares:
-        - chain-authelia@file
-    sonarr-router:
-      entryPoints:
-        - "http"
-        - "https"
-      rule: "Host(`sonarr.{{ DOMAIN }}`)"
-      service: sonarr-service
-      middlewares:
-        - chain-authelia@file
-    radarr-router:
-      entryPoints:
-        - "http"
-        - "https"
-      rule: "Host(`radarr.{{ DOMAIN }}`)"
-      service: radarr-service
-      middlewares:
-        - chain-authelia@file
-    sabnzbd-router:
-      entryPoints:
-        - "http"
-        - "https"
-      rule: "Host(`sabnzbd.{{ DOMAIN }}`)"
-      service: sabnzbd-service
-      middlewares:
-        - chain-authelia@file
-    git-router:
-      entryPoints:
-        - "http"
-        - "https"
-      rule: "Host(`git.{{ DOMAIN }}`)"
-      service: git-service
-      middlewares:
-        - chain-authelia@file
-    dns-router:
-      entryPoints:
-        - "http"
-        - "https"
-      rule: "Host(`dns.{{ DOMAIN }}`)"
-      service: dns-service
-      middlewares:
-        - chain-authelia@file
+        - {{ svc.middleware }}
+{% endfor %}
 
   services:
-    hdro-service:
+{% for name, svc in services.items() %}
+    {{ name }}-service:
       loadBalancer:
         servers:
-          - url: "http://10.1.1.206:8080"
-    jellyfin-service:
-      loadBalancer:
-        servers:
-          - url: "http://10.1.1.21:8096"
-    ombi-service:
-      loadBalancer:
-        servers:
-          - url: "http://10.1.1.21:5000"
-    prowlarr-service:
-      loadBalancer:
-        servers:
-          - url: "http://10.1.1.20:9696"
-    sonarr-service:
-      loadBalancer:
-        servers:
-          - url: "http://10.1.1.20:8989"
-    radarr-service:
-      loadBalancer:
-        servers:
-          - url: "http://10.1.1.20:7878"
-    sabnzbd-service:
-      loadBalancer:
-        servers:
-          - url: "http://10.1.1.20:8084"
-    wiki-service:
-      loadBalancer:
-        servers:
-          - url: "http://10.1.1.64:3000"
-    git-service:
-      loadBalancer:
-        servers:
-          - url: "http://10.1.1.65:3000"
-    dns-service:
-      loadBalancer:
-        servers:
-          - url: "http://10.1.1.5:5380"
+          - url: "http://{% if env == 'dev' %}{{ svc.dev_ip }}{% else %}{{ svc.prod_ip }}{% endif %}:{{ svc.port }}"
+{% endfor %}
 
 tcp:
   routers:
@@ -137,6 +33,4 @@ tcp:
     git-ssh-service:
       loadBalancer:
         servers:
-          - address: "10.1.1.65:22"
-  
-
+          - address: "{% if env == 'dev' %}{{ services.git.dev_ip }}{% else %}{{ services.git.prod_ip }}{% endif %}:22"

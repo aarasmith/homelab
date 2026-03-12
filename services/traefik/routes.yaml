@@ -1,0 +1,77 @@
+services:
+  hdro:
+    subdomain: hdro
+    prod_ip: 10.1.1.206
+    dev_ip: 10.1.1.206
+    port: 8080
+    middleware: chain-authelia@file
+
+  jellyfin:
+    subdomain: jellyfin
+    prod_ip: 10.1.1.21
+    dev_ip: 10.1.1.121
+    port: 8096
+    middleware: chain-authelia@file
+
+  ombi:
+    subdomain: ombi
+    prod_ip: 10.1.1.21
+    dev_ip: 10.1.1.121
+    port: 5000
+    middleware: chain-authelia@file
+
+  prowlarr:
+    subdomain: prowlarr
+    prod_ip: 10.1.1.20
+    dev_ip: 10.1.1.120
+    port: 9696
+    middleware: chain-authelia@file
+
+  sonarr:
+    subdomain: sonarr
+    prod_ip: 10.1.1.20
+    dev_ip: 10.1.1.120
+    port: 8989
+    middleware: chain-authelia@file
+
+  radarr:
+    subdomain: radarr
+    prod_ip: 10.1.1.20
+    dev_ip: 10.1.1.120
+    port: 7878
+    middleware: chain-authelia@file
+
+  sabnzbd:
+    subdomain: sabnzbd
+    prod_ip: 10.1.1.20
+    dev_ip: 10.1.1.120
+    port: 8084
+    middleware: chain-authelia@file
+
+  wiki:
+    subdomain: wiki
+    prod_ip: 10.1.1.64
+    dev_ip: 10.1.1.164
+    port: 3000
+    middleware: chain-authelia@file
+
+  git:
+    subdomain: git
+    prod_ip: 10.1.1.65
+    dev_ip: 10.1.1.165
+    port: 3000
+    middleware: chain-authelia@file
+
+  dns:
+    subdomain: dns
+    prod_ip: 10.1.1.5
+    dev_ip: 10.1.1.5
+    port: 5380
+    middleware: chain-authelia@file
+
+  airflow:
+    subdomain: airflow
+    prod_ip: 10.1.1.30
+    dev_ip: 10.1.1.130
+    port: 8080
+    middleware: chain-authelia@file

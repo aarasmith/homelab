@@ -39,7 +39,7 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-      
+
       - name: Scope PVE vars to current environment
         uses: ./.gitea/actions/normalize-pve-env
         with:
@@ -47,19 +47,16 @@ jobs:
           vars_json: ${{ toJson(vars) }}
 
       - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" | base64 --decode > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${PVE_NODE_IP} >> ~/.ssh/known_hosts
+        uses: ./.gitea/actions/setup-ssh
+        with:
+          ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
 
       - name: Cleanup any already existing LXC template
-        #only run if in dev or a feature branch. FB's leave behind the lxc for verification. Dev will cleanup any FB leftovers
         if: ${{ !contains(fromJSON('["main"]'), github.ref_name) }}
         uses: ./.gitea/actions/cleanup-old-lxc-templates
         with:
           lxc_name: ${{ inputs.lxc_name }}-template
-          pve_node_ip: ${PVE_NODE_IP}
+          pve_node_ip: ${{ github.ref_name == 'main' && vars.PVE_NODE_IP || vars.PVE_NODE_IP_DEV }}
 
       - name: Create pve-provider.auto.tfvars
         run: |
@@ -70,7 +67,6 @@ jobs:
           EOF
 
       - name: Create vars.auto.tfvars
-        #note the lack of quotes around the bool types
         run: |
           cat > terraform/modules/lxc/vars.auto.tfvars <<EOF
           lxc_password    = "${{ secrets.LXC_PASSWORD }}"
@@ -92,12 +88,17 @@ jobs:
 
       - name: Terraform Apply
         run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan
-      
-      - name: Lookup LXC VMID and IP
-        uses: ./.gitea/actions/lookup-lxc-vmid-ip
+
+      - name: Lookup LXC VMID and node
+        uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
-          pve_node_ip: ${PVE_NODE_IP}
           lxc_name: "${{ inputs.lxc_name }}-template"
+
+      - name: Lookup LXC IP
+        uses: ./.gitea/actions/lookup-lxc-ip
+        with:
+          lxc_node_ip: ${PVE_NODE_IP}
+          vmid: ${LXC_VMID}
 
       - name: Render hosts.ini
         run: |
@@ -114,10 +115,10 @@ jobs:
           templates_dir=${PVE_TEMPLATES_DIR}
           EOF
 
-      - name: debug hosts.ini
+      - name: Debug hosts.ini
         run: cat hosts.ini
 
-      - name: inject ansible pve task
+      - name: Inject ansible pve task
         if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
         run: |
           echo "\n- import_playbook: $GITHUB_WORKSPACE/ansible/common/dump-lxc-to-template.yaml" >> ${{ inputs.playbook }}
@@ -128,13 +129,12 @@ jobs:
           ANSIBLE_CONFIG: ansible/ansible.cfg
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
         run: ansible-playbook -i hosts.ini ${{ inputs.playbook }} --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")
-        
+
       - name: Terraform Destroy
         if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || failure() }}
         run: terraform -chdir=terraform/modules/lxc destroy -auto-approve -input=false
-      
+
       - name: Stop LXC container
-        #if not destroying, then stop the container
         if: ${{ !contains(fromJSON('["main","dev"]'), github.ref_name) }}
         run: |
           ssh -oBatchMode=yes root@${PVE_NODE_IP} "
@@ -145,4 +145,3 @@ jobs:
               echo 'Container ${LXC_VMID} is already stopped.'
             fi
           "
-

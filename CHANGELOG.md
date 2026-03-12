@@ -1,5 +1,53 @@
 # Changelog
 
+## [1.1.0] - 2026-03-12
+
+### Added
+
+- **Multi-node cluster support** — LXC deployments can now target any node in the production cluster (`mother`, `fish`, `fastfood`) via the `target_node` input on `lxc-terraform.yaml`. The correct node is automatically selected for SSH and Ansible inventory in all downstream workflows.
+- **`lookup-lxc-vmid-node` action** — New composite action that resolves both the VMID and the node an LXC is running on via `pvesh`. Replaces the old `lookup-lxc-vmid-ip` action across all common workflows.
+- **`lookup-lxc-ip` action** — New composite action that resolves an LXC IP given a VMID and node IP. Decoupled from VMID lookup to allow node-aware IP resolution after `normalize-pve-env` has run.
+- **`setup-ssh` action** — New composite action that writes the SSH private key and scans all production PVE node IPs into `known_hosts` (or just the dev node on non-`main` branches). Eliminates repeated inline SSH setup across all common workflows.
+- **Airflow service** — Full CI/CD for an Apache Airflow stack deployed on the `fastfood` node:
+  - `lxc-template` workflow builds an `airflow-debian12` template from `docker-debian12`.
+  - `lxc-terraform` workflow provisions VMID 303 at `10.1.1.30/24` (prod) / `10.1.1.130/24` (dev) with 4 GB RAM and 2 cores.
+  - `airflow-start.yaml` playbook writes vault secrets to `.env`, initialises the database, creates the admin user, and starts the full stack.
+  - `deploy-dags` workflow syncs DAGs from `services/airflow/dags/` to the running LXC on push.
+  - `airflow-migration.yaml` playbook handles backup (postgres dump + DAGs archive) and restore across LXCs.
+  - Airflow added to the Traefik proxy at `airflow.<DOMAIN>`.
+- **Dynamic Traefik proxy routes** — `services/traefik/routes.yaml` is now the single source of truth for all reverse-proxy service definitions. `external-routes.yaml` is generated from it via `frender` at build time, with prod and dev IPs resolved per environment. Adding a new proxied service no longer requires editing `external-routes.yaml` directly.
+- **`update-proxy-config` trigger expansion** — The workflow now also fires on changes to `services/traefik/routes.yaml` and `services/traefik/docker-compose.yaml`.
+- **Dummy tfvars in `lxc-destroy`** — Added a `vars.auto.tfvars` stub to satisfy Terraform variable validation during destroy without requiring real deployment values.
+- **`lxc-post-deploy` now accepts `lxc_name` instead of `vmid`** — Post-deploy workflow resolves the VMID dynamically via the new lookup actions, removing the need for callers to hardcode VMIDs.
+
+### Changed
+
+- **`normalize-pve-env` action** — Now accepts an optional `target_node` input (`mother`, `fish`, `fastfood`) and sets `PVE_NODE_IP` and `PVE_PASSWORD` from the corresponding per-node repo variables when a specific node is requested. `PVE_NODE_IP` is still used as the default (e.g. for templates and cluster-wide lookups where a specific node doesn't matter).
+- **`lxc-ansible`, `lxc-migration`, `lxc-post-deploy`** — Reordered steps so SSH setup and VMID/node lookup happen before `normalize-pve-env`, enabling the correct per-node variables to be set based on where the LXC is actually running.
+- **Traefik `frender` calls refactored** — Authelia config rendering and Traefik rules rendering are now separate named steps in both `traefik-template.yaml` and `traefik-update.yaml`. Rules rendering now passes `routes.yaml` and an `env` variable so templates can resolve environment-specific IPs.
+- **Airflow deployed on `fastfood` node** — Moved to `fastfood` to take advantage of its higher single-core performance for scheduling workloads.
+- **`lxc-post-deploy` callers updated** — `arr`, `jellyfin-ombi`, and `traefik` service workflows updated to pass `lxc_name` instead of a hardcoded `vmid`.
+- Minor step name capitalisation consistency (`debug` → `Debug`, `inject` → `Inject`) across common workflows.
+
+### Removed
+
+- **`lookup-lxc-vmid-ip` action** — Replaced by the combination of `lookup-lxc-vmid-node` and `lookup-lxc-ip`.
+- **`id: tfout` on Terraform Apply step** — Unused output reference removed from `lxc-terraform.yaml`.
+
+### Migration notes
+
+Add the following new repo variables (existing `PVE_NODE_IP` can stay — it is still used as a default):
+
+| New variable | Purpose |
+|---|---|
+| `PVE_NODE_IP_MOTHER` | SSH/API target for the `mother` node |
+| `PVE_NODE_IP_FISH` | SSH/API target for the `fish` node |
+| `PVE_NODE_IP_FASTFOOD` | SSH/API target for the `fastfood` node |
+
+All `lxc-post-deploy` callers must also be updated to pass `lxc_name` instead of `vmid`.
+
+---
+
 ## [1.0.0] - 2026-03-08
 
 ### Repository Structure
