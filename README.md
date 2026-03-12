@@ -31,8 +31,7 @@ The following repo secrets are required:
 AWS_ACCESS_KEY_ID=<access key id to aws for provider>
 AWS_SECRET_ACCESS_KEY=<access key to aws>
 PVE_USER=<proxmox username e.g. some-username@pam>
-PVE_PASSWORD=<default proxmox password> #required for the TF provider
-PVE_PASSWORD_<NODE-NAME>=<node proxmox password>
+PVE_PASSWORD=<proxmox password for PVE_API_URL> #only required for the TF provider
 PVE_PASSWORD_DEV=<dev proxmox password>
 LXC_PASSWORD=<password for LXC's>
 MASTER_SSH_PUBLIC_KEY=<public key to place on built infra>
