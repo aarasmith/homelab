@@ -32,7 +32,6 @@
 ### Removed
 
 - **`lookup-lxc-vmid-ip` action** — Replaced by the combination of `lookup-lxc-vmid-node` and `lookup-lxc-ip`.
-- **`PVE_NODE_IP` repo variable** — No longer used as the single catch-all for service deployments. Superseded by per-node IP variables for node-targeted workflows; `PVE_NODE_IP` itself is retained as a default for templates and cluster-wide lookups.
 - **`id: tfout` on Terraform Apply step** — Unused output reference removed from `lxc-terraform.yaml`.
 
 ### Migration notes

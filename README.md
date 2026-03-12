@@ -31,7 +31,9 @@ The following repo secrets are required:
 AWS_ACCESS_KEY_ID=<access key id to aws for provider>
 AWS_SECRET_ACCESS_KEY=<access key to aws>
 PVE_USER=<proxmox username e.g. some-username@pam>
-PVE_PASSWORD=<proxmox password>
+PVE_PASSWORD=<default proxmox password> #required for the TF provider
+PVE_PASSWORD_<NODE-NAME>=<node proxmox password>
+PVE_PASSWORD_DEV=<dev proxmox password>
 LXC_PASSWORD=<password for LXC's>
 MASTER_SSH_PUBLIC_KEY=<public key to place on built infra>
 MASTER_SSH_PRIVATE_KEY=<private key to access built infra>
@@ -51,9 +53,7 @@ AWS_TF_BACKEND_BUCKET=<pre-existing S3 bucket name for your terraform state file
 GATEWAY=<the network gateway ip>
 RUNNER_IMAGE=<address of image for actions runner e.g. git.arasmith.org/admin/gitea-runner-tools:latest>
 PVE_NODE_IP=<ip address of the default proxmox node (used for templates and lookups)>
-PVE_NODE_IP_MOTHER=<ip address of the "mother" proxmox node>
-PVE_NODE_IP_FISH=<ip address of the "fish" proxmox node>
-PVE_NODE_IP_FASTFOOD=<ip address of the "fastfood" proxmox node>
+PVE_NODE_IP_<NODE-NAME>=<ip address of each proxmox node>
 PVE_NODE_IP_DEV=<ip address of the dev proxmox node>
 PVE_DISK_STORAGE=<the storage for the lxc disks>
 PVE_DEFAULT_TARGET_NODE=<default node name for builds>
@@ -61,7 +61,7 @@ PVE_API_URL=<example: https://10.1.1.100:8006/api2/json>
 PVE_TEMPLATES_DIR=<directory where templates are saved on node e.g. /mnt/pve/local/template/cache>
 ```
 
-> **Note:** As of v1.1.0, per-node IP variables (`PVE_NODE_IP_MOTHER`, `PVE_NODE_IP_FISH`, `PVE_NODE_IP_FASTFOOD`) are required for service deployments that specify a `target_node`. `PVE_NODE_IP` is still used as the default for templates and cluster-wide lookups.
+> **Note:** As of v1.1.0, per-node IP variables (`PVE_NODE_IP_<NODE-NAME>`) are required for service deployments that specify a `target_node`. `PVE_NODE_IP` is still used as the default for templates and cluster-wide lookups.
 
 ## Repository Structure
 
@@ -124,7 +124,7 @@ jobs:
   deploy:
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
-      target_node: <PVE node name>   # e.g. mother, fish, fastfood
+      target_node: <PVE node name>
       lxc_name: <name>
       base_template: <name>-debian12.tar.gz
       vmid: "<vmid>"
