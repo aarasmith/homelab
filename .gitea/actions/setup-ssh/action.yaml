@@ -1,0 +1,24 @@
+name: "Setup SSH"
+description: "Write SSH private key and add all PVE nodes to known hosts"
+
+inputs:
+  ssh_private_key:
+    required: true
+    description: "Base64-encoded SSH private key"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Write SSH key and scan all nodes
+      shell: bash
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ inputs.ssh_private_key }}" | base64 --decode > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+        if [ "${{ github.ref_name }}" = "main" ]; then
+          ssh-keyscan -H ${{ vars.PVE_NODE_IP_MOTHER }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ vars.PVE_NODE_IP_FISH }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ vars.PVE_NODE_IP_FASTFOOD }} >> ~/.ssh/known_hosts
+        else
+          ssh-keyscan -H ${{ vars.PVE_NODE_IP_DEV }} >> ~/.ssh/known_hosts
+        fi

@@ -30,7 +30,7 @@ jobs:
     needs: deploy
     uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
     with:
-      vmid: "301"
+      lxc_name: arr
     secrets: inherit
        
   add-mount:

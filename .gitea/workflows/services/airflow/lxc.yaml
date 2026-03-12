@@ -14,7 +14,7 @@ jobs:
   deploy:
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
-      target_node: "mother"
+      target_node: "fastfood"
       lxc_name: airflow
       base_template: airflow-debian12.tar.gz
       vmid: "303"
@@ -30,7 +30,7 @@ jobs:
     needs: deploy
     uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
     with:
-      vmid: "303"
+      lxc_name: airflow
     secrets: inherit
 
   start:

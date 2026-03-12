@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       lxc_name:
-        description: "Name of the lxc to look migrate to"
+        description: "Name of the lxc to migrate to"
         required: true
         type: string
       playbook:
@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       source_host:
-        description: "IP address of domain name of migration source"
+        description: "IP address or domain name of migration source"
         required: true
         type: string
       source_user:
@@ -30,25 +30,32 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-      
+
+      - name: Setup SSH key
+        uses: ./.gitea/actions/setup-ssh
+        with:
+          ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
+
+      - name: Add migration source to known hosts
+        run: ssh-keyscan -H ${{ inputs.source_host }} >> ~/.ssh/known_hosts
+
+      - name: Lookup LXC VMID and node
+        uses: ./.gitea/actions/lookup-lxc-vmid-node
+        with:
+          lxc_name: ${{ inputs.lxc_name }}
+
       - name: Scope PVE vars to current environment
         uses: ./.gitea/actions/normalize-pve-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
+          target_node: ${{ env.LXC_NODE }}
 
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.MASTER_SSH_PRIVATE_KEY }}" | base64 --decode > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${PVE_NODE_IP} >> ~/.ssh/known_hosts
-      
-      - name: Lookup LXC VMID and IP
-        uses: ./.gitea/actions/lookup-lxc-vmid-ip
+      - name: Lookup LXC IP
+        uses: ./.gitea/actions/lookup-lxc-ip
         with:
-          pve_node_ip: ${PVE_NODE_IP}
-          lxc_name: "${{ inputs.lxc_name }}"
+          lxc_node_ip: ${PVE_NODE_IP}
+          vmid: ${LXC_VMID}
 
       - name: Render hosts.ini
         run: |
@@ -61,7 +68,7 @@ jobs:
           source_user=${{ inputs.source_user }}
           EOF
 
-      - name: debug hosts.ini
+      - name: Debug hosts.ini
         run: cat hosts.ini
 
       - name: Run Ansible Playbook

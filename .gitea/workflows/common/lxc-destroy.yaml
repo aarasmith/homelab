@@ -39,11 +39,22 @@ jobs:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
 
+      - name: Setup SSH key
+        uses: ./.gitea/actions/setup-ssh
+        with:
+          ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
+
+      - name: Lookup LXC VMID and node
+        uses: ./.gitea/actions/lookup-lxc-vmid-node
+        with:
+          lxc_name: ${{ inputs.lxc_name }}
+
       - name: Scope PVE vars to current environment
         uses: ./.gitea/actions/normalize-pve-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
+          target_node: ${{ env.LXC_NODE }}
 
       - name: Create pve-provider.auto.tfvars
         run: |
