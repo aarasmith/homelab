@@ -1,0 +1,31 @@
+---
+- name: Configure and start Kafka broker
+  hosts: kafka
+  become: yes
+  vars:
+    docker_dir: /docker
+    cluster_id: "kHiq-ccPRlOVlqRYvimRnA"
+
+  tasks:
+    - name: Derive broker index from hostname (kafka-1 -> 1, etc.)
+      set_fact:
+        broker_id: "{{ inventory_hostname.split('-')[1] }}"
+
+    - name: Derive this broker's advertised IP from inventory
+      set_fact:
+        broker_own_ip: "{{ ansible_host }}"
+
+    - name: Build controller quorum voters string
+      set_fact:
+        quorum_voters: "1@{{ broker_1_ip }}:9093,2@{{ broker_2_ip }}:9093,3@{{ broker_3_ip }}:9093"
+
+    - name: Render docker-compose.yaml from jinja2 template
+      template:
+        src: "{{ playbook_dir }}/../docker-compose.yaml.j2"
+        dest: "{{ docker_dir }}/docker-compose.yaml"
+        mode: "0644"
+
+    - name: Start Kafka via Docker Compose
+      command:
+        cmd: docker compose up -d
+        chdir: "{{ docker_dir }}"

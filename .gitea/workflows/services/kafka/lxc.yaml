@@ -1,0 +1,99 @@
+name: services | kafka | lxc
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "feature/**"
+    paths:
+      - ".gitea/workflows/services/kafka/lxc.yaml"
+      - "services/kafka/docker-compose.yaml.j2"
+  workflow_dispatch:
+
+env:
+  BROKER_1_IP: ${{ github.ref_name == 'main' && '10.1.1.11' || '10.1.1.111' }}
+  BROKER_2_IP: ${{ github.ref_name == 'main' && '10.1.1.12' || '10.1.1.112' }}
+  BROKER_3_IP: ${{ github.ref_name == 'main' && '10.1.1.13' || '10.1.1.113' }}
+
+jobs:
+  deploy-broker-1:
+    uses: ./.gitea/workflows/common/lxc-terraform.yaml
+    with:
+      target_node: "mother"
+      lxc_name: kafka-1
+      base_template: kafka-debian12.tar.gz
+      vmid: "310"
+      ip: ${{ github.ref_name == 'main' && '10.1.1.11/24' || '10.1.1.111/24' }}
+      memory: "2048"
+      cores: "2"
+      storage_size: "32G"
+      enable_docker: true
+      unprivileged: true
+    secrets: inherit
+
+  deploy-broker-2:
+    uses: ./.gitea/workflows/common/lxc-terraform.yaml
+    with:
+      target_node: "fish"
+      lxc_name: kafka-2
+      base_template: kafka-debian12.tar.gz
+      vmid: "311"
+      ip: ${{ github.ref_name == 'main' && '10.1.1.12/24' || '10.1.1.112/24' }}
+      memory: "2048"
+      cores: "2"
+      storage_size: "32G"
+      enable_docker: true
+      unprivileged: true
+    secrets: inherit
+
+  deploy-broker-3:
+    uses: ./.gitea/workflows/common/lxc-terraform.yaml
+    with:
+      target_node: "fastfood"
+      lxc_name: kafka-3
+      base_template: kafka-debian12.tar.gz
+      vmid: "312"
+      ip: ${{ github.ref_name == 'main' && '10.1.1.13/24' || '10.1.1.113/24' }}
+      memory: "2048"
+      cores: "2"
+      storage_size: "32G"
+      enable_docker: true
+      unprivileged: true
+    secrets: inherit
+
+  post-deploy-broker-1:
+    needs: deploy-broker-1
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      lxc_name: kafka-1
+    secrets: inherit
+
+  post-deploy-broker-2:
+    needs: deploy-broker-2
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      lxc_name: kafka-2
+    secrets: inherit
+
+  post-deploy-broker-3:
+    needs: deploy-broker-3
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      lxc_name: kafka-3
+    secrets: inherit
+
+  configure:
+    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+    needs: [post-deploy-broker-1, post-deploy-broker-2, post-deploy-broker-3]
+    uses: ./.gitea/workflows/common/lxc-multi-ansible.yaml
+    with:
+      playbook: services/kafka/ansible/kafka-start.yaml
+      group_name: kafka
+      lxc_name_1: kafka-1
+      lxc_name_2: kafka-2
+      lxc_name_3: kafka-3
+      lxc_ip_1: ${{ github.ref_name == 'main' && '10.1.1.11' || '10.1.1.111' }}
+      lxc_ip_2: ${{ github.ref_name == 'main' && '10.1.1.12' || '10.1.1.112' }}
+      lxc_ip_3: ${{ github.ref_name == 'main' && '10.1.1.13' || '10.1.1.113' }}
+    secrets: inherit

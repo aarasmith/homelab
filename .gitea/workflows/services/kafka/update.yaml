@@ -1,0 +1,12 @@
+name: services | kafka | update
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update:
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: kafka
+      playbook: ansible/common/update-docker-lxc.yaml
+    secrets: inherit
