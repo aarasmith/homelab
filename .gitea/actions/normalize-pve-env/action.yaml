@@ -26,17 +26,12 @@ runs:
           echo "PVE_DISK_STORAGE=$(echo "$VARS" | jq -r '.PVE_DISK_STORAGE')" >> $GITHUB_ENV
           echo "PVE_DEFAULT_TARGET_NODE=$(echo "$VARS" | jq -r '.PVE_DEFAULT_TARGET_NODE')" >> $GITHUB_ENV
           echo "PVE_API_URL=$(echo "$VARS" | jq -r '.PVE_API_URL')" >> $GITHUB_ENV
+          echo "PVE_PASSWORD=$(echo "$SECRETS" | jq -r '.PVE_PASSWORD')" >> $GITHUB_ENV
           echo "PVE_TEMPLATES_DIR=$(echo "$VARS" | jq -r '.PVE_TEMPLATES_DIR')" >> $GITHUB_ENV
-
           case "${{ inputs.target_node }}" in
             fish)     echo "PVE_NODE_IP=$(echo "$VARS" | jq -r '.PVE_NODE_IP_FISH')" >> $GITHUB_ENV ;;
             fastfood) echo "PVE_NODE_IP=$(echo "$VARS" | jq -r '.PVE_NODE_IP_FASTFOOD')" >> $GITHUB_ENV ;;
             *)        echo "PVE_NODE_IP=$(echo "$VARS" | jq -r '.PVE_NODE_IP_MOTHER')" >> $GITHUB_ENV ;;
-          esac
-          case "${{ inputs.target_node }}" in
-            fish)     echo "PVE_PASSWORD=$(echo "$VARS" | jq -r '.PVE_PASSWORD_FISH')" >> $GITHUB_ENV ;;
-            fastfood) echo "PVE_PASSWORD=$(echo "$VARS" | jq -r '.PVE_PASSWORD_FASTFOOD')" >> $GITHUB_ENV ;;
-            *)        echo "PVE_PASSWORD=$(echo "$VARS" | jq -r '.PVE_PASSWORD_MOTHER')" >> $GITHUB_ENV ;;
           esac
         else
           echo "PVE_USER=$(echo "$SECRETS" | jq -r '.PVE_USER_DEV')" >> $GITHUB_ENV
