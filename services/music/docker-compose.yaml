@@ -1,0 +1,44 @@
+services:
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:nightly
+    container_name: lidarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - /docker/appdata/lidarr/config:/config
+      - /mnt/data/music:/music
+      - /mnt/data/music/downloads:/downloads
+    ports:
+      - "8686:8686"
+
+  slskd:
+    image: slskd/slskd:latest
+    container_name: slskd
+    restart: unless-stopped
+    environment:
+      - SLSKD_REMOTE_CONFIGURATION=true
+    volumes:
+      - /docker/appdata/slskd/config:/app
+      - /mnt/data/music/downloads:/downloads
+    ports:
+      - "5030:5030"
+      - "50300:50300" # Soulseek p2p - forward this on your router
+
+  navidrome:
+    image: deluan/navidrome:latest
+    container_name: navidrome
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      - ND_SCANSCHEDULE=1h
+      - ND_LOGLEVEL=info
+      - ND_SESSIONTIMEOUT=24h
+      - ND_MUSICFOLDER=/music
+    volumes:
+      - /docker/appdata/navidrome/data:/data
+      - /mnt/data/music:/music:ro
+    ports:
+      - "4533:4533"

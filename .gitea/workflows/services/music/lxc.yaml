@@ -1,0 +1,52 @@
+name: services | music | lxc
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "feature/**"
+    paths:
+      - ".gitea/workflows/services/music/lxc.yaml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.gitea/workflows/common/lxc-terraform.yaml
+    with:
+      target_node: "mother"
+      lxc_name: music
+      base_template: music-debian12.tar.gz
+      vmid: "305"
+      ip: ${{ github.ref_name == 'main' && '10.1.1.23/24' || '10.1.1.123/24' }}
+      memory: "2048"
+      cores: "1"
+      storage_size: "16G"
+      enable_docker: true
+      unprivileged: true
+    secrets: inherit
+
+  post-deploy:
+    needs: deploy
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      lxc_name: music
+    secrets: inherit
+
+  add-mount:
+    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+    needs: post-deploy
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: music
+      playbook: ansible/common/add-unprivileged-nfs-mount.yaml
+    secrets: inherit
+
+  start-containers:
+    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+    needs: [post-deploy, add-mount]
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: music
+      playbook: ansible/common/start-docker-containers.yaml
+    secrets: inherit
