@@ -98,3 +98,11 @@ services:
         dev_ip: 10.1.1.112
       - prod_ip: 10.1.1.13
         dev_ip: 10.1.1.113
+
+  qbit:
+    subdomain: qbit
+    port: 8080
+    middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.22
+        dev_ip: 10.1.1.122
