@@ -1,77 +1,100 @@
 services:
   hdro:
     subdomain: hdro
-    prod_ip: 10.1.1.206
-    dev_ip: 10.1.1.206
     port: 8080
     middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.206
+        dev_ip: 10.1.1.206
 
   jellyfin:
     subdomain: jellyfin
-    prod_ip: 10.1.1.21
-    dev_ip: 10.1.1.121
     port: 8096
     middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.21
+        dev_ip: 10.1.1.121
 
   ombi:
     subdomain: ombi
-    prod_ip: 10.1.1.21
-    dev_ip: 10.1.1.121
     port: 5000
     middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.21
+        dev_ip: 10.1.1.121
 
   prowlarr:
     subdomain: prowlarr
-    prod_ip: 10.1.1.20
-    dev_ip: 10.1.1.120
     port: 9696
     middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.20
+        dev_ip: 10.1.1.120
 
   sonarr:
     subdomain: sonarr
-    prod_ip: 10.1.1.20
-    dev_ip: 10.1.1.120
     port: 8989
     middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.20
+        dev_ip: 10.1.1.120
 
   radarr:
     subdomain: radarr
-    prod_ip: 10.1.1.20
-    dev_ip: 10.1.1.120
     port: 7878
     middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.20
+        dev_ip: 10.1.1.120
 
   sabnzbd:
     subdomain: sabnzbd
-    prod_ip: 10.1.1.20
-    dev_ip: 10.1.1.120
     port: 8084
     middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.20
+        dev_ip: 10.1.1.120
 
   wiki:
     subdomain: wiki
-    prod_ip: 10.1.1.64
-    dev_ip: 10.1.1.164
     port: 3000
     middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.64
+        dev_ip: 10.1.1.164
 
   git:
     subdomain: git
-    prod_ip: 10.1.1.65
-    dev_ip: 10.1.1.165
     port: 3000
     middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.65
+        dev_ip: 10.1.1.165
 
   dns:
     subdomain: dns
-    prod_ip: 10.1.1.5
-    dev_ip: 10.1.1.5
     port: 5380
     middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.5
+        dev_ip: 10.1.1.5
 
   airflow:
     subdomain: airflow
-    prod_ip: 10.1.1.30
-    dev_ip: 10.1.1.130
     port: 8080
     middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.30
+        dev_ip: 10.1.1.130
+
+  kafka:
+    subdomain: kafka
+    port: 8080
+    middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.11
+        dev_ip: 10.1.1.111
+      - prod_ip: 10.1.1.12
+        dev_ip: 10.1.1.112
+      - prod_ip: 10.1.1.13
+        dev_ip: 10.1.1.113

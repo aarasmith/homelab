@@ -1,0 +1,61 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    hostname: kafka-{{ broker_id }}
+    environment:
+      # KRaft configuration
+      KAFKA_KRAFT_MODE: "true"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: "{{ broker_id }}"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "{{ quorum_voters }}"
+
+      # Listeners
+      # PLAINTEXT  - internal docker-to-docker on this host
+      # CONTROLLER - KRaft controller communication between brokers
+      # EXTERNAL   - clients outside docker (homelab services, dev machines)
+      KAFKA_LISTENERS: CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://{{ broker_own_ip }}:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: EXTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      CLUSTER_ID: "{{ cluster_id }}"
+
+      # Replication - all 3 brokers must be up for full durability guarantees
+      KAFKA_DEFAULT_REPLICATION_FACTOR: "3"
+      KAFKA_NUM_PARTITIONS: "3"
+      KAFKA_MIN_INSYNC_REPLICAS: "2"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "3"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "3"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "2"
+
+      # Retention / performance
+      KAFKA_LOG_RETENTION_HOURS: "168"
+      KAFKA_LOG_SEGMENT_BYTES: "1073741824"
+      KAFKA_NUM_NETWORK_THREADS: "3"
+      KAFKA_NUM_IO_THREADS: "4"
+
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+      - "9094:9094"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    restart: unless-stopped
+
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: homelab
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: {{ broker_1_ip }}:9094,{{ broker_2_ip }}:9094,{{ broker_3_ip }}:9094
+    restart: unless-stopped
+
+
+volumes:
+  kafka_data:
+    driver: local

@@ -1,0 +1,24 @@
+name: services | kafka | template
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "feature/**"
+    paths:
+      - "services/kafka/ansible/kafka-template.yaml"
+      - ".gitea/workflows/services/kafka/template.yaml"
+  workflow_dispatch:
+
+jobs:
+  create-template:
+    uses: ./.gitea/workflows/common/lxc-template.yaml
+    with:
+      playbook: services/kafka/ansible/kafka-template.yaml
+      lxc_name: kafka
+      template_name: kafka-debian12
+      base_template: docker-debian12.tar.gz
+      enable_docker: true
+      unprivileged: true
+    secrets: inherit

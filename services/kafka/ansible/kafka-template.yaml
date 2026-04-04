@@ -1,0 +1,19 @@
+---
+- name: Prepare Kafka LXC template
+  hosts: lxc
+  become: yes
+  vars:
+    docker_dir: /docker
+
+  tasks:
+    - name: Create docker directory
+      file:
+        path: "{{ docker_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Pre-pull kafka image
+      command: docker pull confluentinc/cp-kafka:latest
+
+    - name: Pre-pull kafka-ui image
+      command: docker pull provectuslabs/kafka-ui:latest
