@@ -1,0 +1,51 @@
+---
+- name: Configure torrents LXC template
+  hosts: lxc
+  become: yes
+  vars:
+    remote_dir: /docker
+    service_dir: "{{ playbook_dir }}/.."
+    compose_file: docker-compose.yaml
+    qbit_config_dir: /docker/appdata/qbittorrent/qBittorrent
+
+  tasks:
+    - name: Ensure remote docker directory exists
+      file:
+        path: "{{ remote_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Ensure qBittorrent config directory exists
+      file:
+        path: "{{ qbit_config_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose.yaml to remote host
+      copy:
+        src: "{{ service_dir }}/{{ compose_file }}"
+        dest: "{{ remote_dir }}/{{ compose_file }}"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copy qBittorrent.conf to remote host
+      copy:
+        src: "{{ service_dir }}/config/qBittorrent.conf"
+        dest: "{{ qbit_config_dir }}/qBittorrent.conf"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copy categories.json to remote host
+      copy:
+        src: "{{ service_dir }}/config/categories.json"
+        dest: "{{ qbit_config_dir }}/categories.json"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Pre-pull required images
+      ansible.builtin.command:
+        cmd: docker compose pull
+        chdir: "{{ remote_dir }}"
