@@ -106,3 +106,27 @@ services:
     servers:
       - prod_ip: 10.1.1.22
         dev_ip: 10.1.1.122
+  
+  lidarr:
+    subdomain: lidarr
+    port: 8686
+    middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.23
+        dev_ip: 10.1.1.123
+
+  soulseek:
+    subdomain: soulseek
+    port: 5030
+    middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.23
+        dev_ip: 10.1.1.123
+
+  navidrome:
+    subdomain: navidrome
+    port: 4533
+    middleware: chain-authelia@file
+    servers:
+      - prod_ip: 10.1.1.23
+        dev_ip: 10.1.1.123

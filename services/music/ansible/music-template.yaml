@@ -1,0 +1,34 @@
+---
+- name: Configure music LXC template
+  hosts: lxc
+  become: yes
+  vars:
+    docker_dir: /docker
+
+  tasks:
+    - name: Create directory structure
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ docker_dir }}/appdata/lidarr/config"
+        - "{{ docker_dir }}/appdata/slskd/config"
+        - "{{ docker_dir }}/appdata/navidrome/data"
+
+    - name: Set ownership on navidrome data dir
+      file:
+        path: "{{ docker_dir }}/appdata/navidrome/data"
+        owner: "1000"
+        group: "1000"
+
+    - name: Copy docker-compose.yaml
+      copy:
+        src: "{{ playbook_dir }}/../docker-compose.yaml"
+        dest: "{{ docker_dir }}/docker-compose.yaml"
+        mode: "0644"
+
+    - name: Pre-pull required images
+      ansible.builtin.command:
+        cmd: docker compose pull
+        chdir: "{{ docker_dir }}"
