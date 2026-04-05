@@ -64,7 +64,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ vars.AWS_REGION }}
     outputs:
-      applied: ${{ steps.apply.outputs.applied }}
+      created: ${{ steps.apply.outputs.created }}
 
     steps:
       - name: Checkout repo
@@ -136,7 +136,7 @@ jobs:
 
       - name: Terraform Apply
         id: apply
-        if: ${{ inputs.apply }}
+        if: ${{ inputs.apply == 'true' }}
         run: |
           terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan | tee /tmp/tf_output.txt
           if grep -q "^Apply complete! Resources: [1-9][0-9]* added" /tmp/tf_output.txt; then
