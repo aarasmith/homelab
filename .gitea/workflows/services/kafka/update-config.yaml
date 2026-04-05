@@ -1,0 +1,32 @@
+name: services | kafka | update-config
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "services/kafka/docker-compose.yaml"
+      - "services/kafka/ansible/kafka-setup.yaml"
+  workflow_dispatch:
+
+jobs:
+  start-lxc:
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      lxc_name: kafka
+    secrets: inherit
+
+  configure:
+    needs: wait-for-boot
+    uses: ./.gitea/workflows/common/lxc-multi-ansible.yaml
+    with:
+      playbook: services/kafka/ansible/kafka-setup.yaml
+      group_name: kafka
+      lxc_name_1: kafka-1
+      lxc_name_2: kafka-2
+      lxc_name_3: kafka-3
+      lxc_ip_1: ${{ github.ref_name == 'main' && '10.1.1.11' || '10.1.1.111' }}
+      lxc_ip_2: ${{ github.ref_name == 'main' && '10.1.1.12' || '10.1.1.112' }}
+      lxc_ip_3: ${{ github.ref_name == 'main' && '10.1.1.13' || '10.1.1.113' }}
+    secrets: inherit
