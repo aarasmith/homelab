@@ -30,8 +30,8 @@ on:
       dump_template:
         description: "Whether to dump the LXC to a template file and destroy it afterwards"
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: "false"
     secrets: inherit
   workflow_dispatch:
 

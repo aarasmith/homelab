@@ -46,8 +46,8 @@ on:
       apply:
         description: "Whether to run terraform apply (set false for plan-only)"
         required: false
-        type: boolean
-        default: true
+        type: string
+        default: 'false'
     outputs:
       created:
         description: "Whether the LXC was just created"
