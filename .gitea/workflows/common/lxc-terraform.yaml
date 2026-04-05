@@ -46,8 +46,8 @@ on:
       apply:
         description: "Whether to run terraform apply (set false for plan-only)"
         required: false
-        type: string
-        default: 'false'
+        type: bool
+        default: false
     outputs:
       created:
         description: "Whether the LXC was just created"
@@ -136,7 +136,7 @@ jobs:
 
       - name: Terraform Apply
         id: apply
-        if: ${{ inputs.apply == 'true' }}
+        if: ${{ inputs.apply }}
         run: |
           terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan | tee /tmp/tf_output.txt
           if grep -q "^Apply complete! Resources: [1-9][0-9]* added" /tmp/tf_output.txt; then
