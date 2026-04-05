@@ -30,8 +30,8 @@ on:
       dump_template:
         description: "Whether to dump the LXC to a template file and destroy it afterwards"
         required: false
-        type: bool
-        default: false
+        type: string
+        default: "false"
     secrets: inherit
   workflow_dispatch:
 
@@ -123,7 +123,7 @@ jobs:
         run: cat hosts.ini
 
       - name: Inject ansible dump-to-template task
-        if: ${{ inputs.dump_template }}
+        if: ${{ inputs.dump_template == 'true' }}
         run: |
           echo "\n- import_playbook: $GITHUB_WORKSPACE/ansible/common/dump-lxc-to-template.yaml" >> ${{ inputs.playbook }}
 
@@ -135,11 +135,11 @@ jobs:
         run: ansible-playbook -i hosts.ini ${{ inputs.playbook }} --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")
 
       - name: Terraform Destroy
-        if: ${{ inputs.dump_template || failure() }}
+        if: ${{ inputs.dump_template == 'true' || failure() }}
         run: terraform -chdir=terraform/modules/lxc destroy -auto-approve -input=false
 
       - name: Stop LXC container
-        if: ${{ !inputs.dump_template && !failure() }}
+        if: ${{ inputs.dump_template != 'true' && !failure() }}
         run: |
           ssh -oBatchMode=yes root@${PVE_NODE_IP} "
             if pct status ${LXC_VMID} | grep -q 'status: running'; then
