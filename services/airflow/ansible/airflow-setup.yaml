@@ -5,12 +5,28 @@
   hosts: lxc
   become: yes
   vars:
+    service_dir: "{{ playbook_dir }}/.."
     remote_dir: /docker
+    compose_file: docker-compose.yaml
 
   vars_files:
     - "{{ playbook_dir }}/vault.yaml"
 
   tasks:
+    - name: Ensure remote docker directory exists
+      file:
+        path: "{{ remote_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose.yaml to remote host
+      copy:
+        src: "{{ service_dir }}/{{ compose_file }}"
+        dest: "{{ remote_dir }}/{{ compose_file }}"
+        owner: root
+        group: root
+        mode: '0644'
+        
     - name: Ensure DAGs and logs directories exist
       file:
         path: "{{ item }}"
@@ -71,8 +87,3 @@
       failed_when:
         - user_create.rc != 0
         - "'already exists' not in user_create.stdout"
-
-    - name: Start remaining services
-      ansible.builtin.command:
-        cmd: docker compose up -d
-        chdir: "{{ remote_dir }}"

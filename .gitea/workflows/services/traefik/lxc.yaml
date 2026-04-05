@@ -8,6 +8,11 @@ on:
     paths:
       - ".gitea/workflows/services/traefik/lxc.yaml"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Pass 'true' to force apply and post-deploy steps to run"
+        required: false
+        type: string
 
 jobs:
   deploy:
@@ -23,18 +28,21 @@ jobs:
       storage_size: "16G"
       enable_docker: true
       unprivileged: true
+      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || inputs.force == 'true' }}
     secrets: inherit
   
-  post-deploy:
+  wait-for-boot:
     needs: deploy
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
-    with:
-      lxc_name: traefik
-    secrets: inherit
+    if: ${{ needs.deploy.outputs.created == 'true' || inputs.force == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    steps:
+      - name: Sleep to allow LXC to boot
+        run: sleep 15
 
   start-containers:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: traefik

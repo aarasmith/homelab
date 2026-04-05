@@ -6,12 +6,7 @@
     remote_dir: /docker
     service_dir: "{{ playbook_dir }}/.."
     compose_file: docker-compose.yaml
-    docker_images:
-      - ghcr.io/linuxserver/prowlarr:develop
-      - lscr.io/linuxserver/sonarr:latest
-      - lscr.io/linuxserver/radarr:latest
-      - lscr.io/linuxserver/sabnzbd:latest
-
+  
   tasks:
     - name: Ensure remote directory exists
       file:
@@ -26,15 +21,4 @@
         owner: root
         group: root
         mode: '0644'
-
-    - name: Pre-pull required images
-      community.docker.docker_image:
-        name: "{{ item }}"
-        source: pull
-      loop: "{{ docker_images }}"
-
-    - name: Start Docker Compose stack
-      ansible.builtin.command:
-        cmd: docker compose up -d
-        chdir: "{{ remote_dir }}"
 

@@ -21,4 +21,5 @@ jobs:
       base_template: debian-12-standard_12.12-1_amd64.tar.zst
       enable_docker: false
       unprivileged: true
+      dump_template: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     secrets: inherit

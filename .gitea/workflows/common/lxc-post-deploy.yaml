@@ -19,23 +19,27 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # Setup an SSH key on the CI/CD runner so it can access the PVE nodes
       - name: Setup SSH key
         uses: ./.gitea/actions/setup-ssh
         with:
           ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
 
+      # Doesn't matter which PVE node you ask for this info
+      # Puts LXC_VMID and LXC_NODE into the GITHUB_ENV
       - name: Lookup LXC VMID and node
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: ${{ inputs.lxc_name }}
 
-      - name: Scope PVE vars to current environment
+      - name: Scope PVE vars to current environment and target node
         uses: ./.gitea/actions/normalize-pve-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
           target_node: ${{ env.LXC_NODE }}
 
+      # This requires that PVE vars are scoped to the correct environment AND node which hosts the LXC
       - name: Ensure LXC is running
         run: ssh -oBatchMode=yes root@${PVE_NODE_IP} "pct start ${LXC_VMID} || true"
 

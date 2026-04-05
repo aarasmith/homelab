@@ -7,6 +7,12 @@
     cluster_id: "kHiq-ccPRlOVlqRYvimRnA"
 
   tasks:
+    - name: Create docker directory
+      file:
+        path: "{{ docker_dir }}"
+        state: directory
+        mode: "0755"
+        
     - name: Derive broker index from hostname (kafka-1 -> 1, etc.)
       set_fact:
         broker_id: "{{ inventory_hostname.split('-')[1] }}"
