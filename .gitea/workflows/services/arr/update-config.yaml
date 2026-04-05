@@ -1,0 +1,34 @@
+name: services | arr | update-config
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "services/arr/docker-compose.yaml"
+      - "services/arr/ansible/arr-setup.yaml"
+  workflow_dispatch:
+
+jobs:
+  start-lxc:
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      lxc_name: arr
+    secrets: inherit
+
+  setup:
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: arr
+      playbook: services/arr/ansible/arr-setup.yaml
+    secrets: inherit
+
+  restart-containers:
+    needs: setup
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: arr
+      playbook: ansible/common/start-docker-containers.yaml
+    secrets: inherit

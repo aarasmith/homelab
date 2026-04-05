@@ -24,18 +24,29 @@ jobs:
       storage_size: "16G"
       enable_docker: true
       unprivileged: true
+      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     secrets: inherit
   
-  post-deploy:
+  wait-for-boot:
     needs: deploy
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    if: ${{ needs.deploy.outputs.created == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    steps:
+      - name: Sleep to allow LXC to boot
+        run: sleep 15
+
+  setup:
+    needs: wait-for-boot
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: arr
+      playbook: services/arr/ansible/arr-setup.yaml
     secrets: inherit
-       
+
   add-mount:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: arr
@@ -43,8 +54,7 @@ jobs:
     secrets: inherit
 
   start-containers:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: [setup, add-mount]
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: arr
