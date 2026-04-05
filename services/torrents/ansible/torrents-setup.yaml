@@ -1,15 +1,16 @@
 ---
-- name: Configure torrents LXC template
+- name: Setup torrents LXC
   hosts: lxc
   become: yes
+  vars_files:
+    - vault.yaml
   vars:
     remote_dir: /docker
     service_dir: "{{ playbook_dir }}/.."
-    compose_file: docker-compose.yaml
     qbit_config_dir: /docker/appdata/qbittorrent/qBittorrent
 
   tasks:
-    - name: Ensure remote docker directory exists
+    - name: Ensure docker directory exists
       file:
         path: "{{ remote_dir }}"
         state: directory
@@ -21,15 +22,15 @@
         state: directory
         mode: '0755'
 
-    - name: Copy docker-compose.yaml to remote host
+    - name: Copy docker-compose.yaml
       copy:
-        src: "{{ service_dir }}/{{ compose_file }}"
-        dest: "{{ remote_dir }}/{{ compose_file }}"
+        src: "{{ service_dir }}/docker-compose.yaml"
+        dest: "{{ remote_dir }}/docker-compose.yaml"
         owner: root
         group: root
         mode: '0644'
 
-    - name: Copy qBittorrent.conf to remote host
+    - name: Copy qBittorrent.conf
       copy:
         src: "{{ service_dir }}/config/qBittorrent.conf"
         dest: "{{ qbit_config_dir }}/qBittorrent.conf"
@@ -37,7 +38,7 @@
         group: root
         mode: '0644'
 
-    - name: Copy categories.json to remote host
+    - name: Copy categories.json
       copy:
         src: "{{ service_dir }}/config/categories.json"
         dest: "{{ qbit_config_dir }}/categories.json"
@@ -45,7 +46,17 @@
         group: root
         mode: '0644'
 
-    - name: Pre-pull required images
-      ansible.builtin.command:
-        cmd: docker compose pull
-        chdir: "{{ remote_dir }}"
+    - name: Render .env file from vault
+      copy:
+        dest: "{{ remote_dir }}/.env"
+        mode: "0600"
+        content: |
+          VPN_SERVICE_PROVIDER={{ VPN_SERVICE_PROVIDER }}
+          VPN_TYPE={{ VPN_TYPE }}
+          OPENVPN_USER={{ OPENVPN_USER }}
+          OPENVPN_PASSWORD={{ OPENVPN_PASSWORD }}
+          SERVER_COUNTRIES={{ SERVER_COUNTRIES }}
+
+    - name: Restart qBittorrent to pick up config changes
+      ansible.builtin.command: docker restart qbittorrent
+      ignore_errors: yes  # container may not exist yet on first run

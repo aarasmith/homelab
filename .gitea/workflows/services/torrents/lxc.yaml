@@ -16,7 +16,7 @@ jobs:
     with:
       target_node: "mother"
       lxc_name: torrents
-      base_template: torrents-debian12.tar.gz
+      base_template: docker-debian12.tar.gz
       vmid: "304"
       ip: ${{ github.ref_name == 'main' && '10.1.1.22/24' || '10.1.1.122/24' }}
       memory: "2048"
@@ -27,9 +27,26 @@ jobs:
       apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     secrets: inherit
 
-  add-media-mount:
+  wait-for-boot:
     needs: deploy
     if: ${{ needs.deploy.outputs.created == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    steps:
+      - name: Sleep to allow LXC to boot
+        run: sleep 15
+
+  setup:
+    needs: wait-for-boot
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: torrents
+      playbook: services/torrents/ansible/torrents-setup.yaml
+    secrets: inherit
+
+  add-media-mount:
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents
@@ -37,25 +54,15 @@ jobs:
     secrets: inherit
 
   add-tun-device:
-    needs: deploy
-    if: ${{ needs.deploy.outputs.created == 'true' }}
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents
       playbook: ansible/common/add-tun-device.yaml
     secrets: inherit
 
-  inject-env:
-    needs: deploy
-    if: ${{ needs.deploy.outputs.created == 'true' }}
-    uses: ./.gitea/workflows/common/lxc-ansible.yaml
-    with:
-      lxc_name: torrents
-      playbook: services/torrents/ansible/torrents-inject-env.yaml
-    secrets: inherit
-
   start-containers:
-    needs: [add-media-mount, add-tun-device, inject-env]
+    needs: [setup, add-media-mount, add-tun-device]
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents

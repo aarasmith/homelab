@@ -1,0 +1,37 @@
+name: services | torrents | update-config
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "feature/**"
+    paths:
+      - "services/torrents/docker-compose.yaml"
+      - "services/torrents/config/**"
+      - "services/torrents/ansible/vault.yaml"
+      - "services/torrents/ansible/torrents-setup.yaml"
+  workflow_dispatch:
+
+jobs:
+  start-lxc:
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      lxc_name: torrents
+    secrets: inherit
+
+  setup:
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: torrents
+      playbook: services/torrents/ansible/torrents-setup.yaml
+    secrets: inherit
+
+  restart-containers:
+    needs: setup
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: torrents
+      playbook: ansible/common/start-docker-containers.yaml
+    secrets: inherit
