@@ -37,6 +37,7 @@
         owner: root
         group: root
         mode: '0644'
+        force: no
 
     - name: Copy categories.json
       copy:
@@ -45,6 +46,7 @@
         owner: root
         group: root
         mode: '0644'
+        force: no
 
     - name: Render .env file from vault
       copy:
@@ -56,7 +58,3 @@
           OPENVPN_USER={{ OPENVPN_USER }}
           OPENVPN_PASSWORD={{ OPENVPN_PASSWORD }}
           SERVER_COUNTRIES={{ SERVER_COUNTRIES }}
-
-    - name: Restart qBittorrent to pick up config changes
-      ansible.builtin.command: docker restart qbittorrent
-      ignore_errors: yes  # container may not exist yet on first run
