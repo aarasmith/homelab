@@ -5,10 +5,9 @@ on:
     branches:
       - main
       - dev
-      - "feature/**"
     paths:
       - "services/torrents/docker-compose.yaml"
-      - "services/torrents/config/**"
+      - "services/torrents/config/categories.json"
       - "services/torrents/ansible/vault.yaml"
       - "services/torrents/ansible/torrents-setup.yaml"
   workflow_dispatch:
@@ -25,6 +24,7 @@ jobs:
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents
+      # Will not overwrite config (avoids password reset)
       playbook: services/torrents/ansible/torrents-setup.yaml
     secrets: inherit
 

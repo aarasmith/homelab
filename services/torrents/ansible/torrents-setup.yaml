@@ -46,7 +46,6 @@
         owner: root
         group: root
         mode: '0644'
-        force: no
 
     - name: Render .env file from vault
       copy:
