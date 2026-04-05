@@ -9,6 +9,11 @@ on:
     paths:
       - ".gitea/workflows/services/music/lxc.yaml"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Pass 'true' to force apply and post-deploy steps to run"
+        required: false
+        type: string
 
 jobs:
   deploy:
@@ -16,7 +21,7 @@ jobs:
     with:
       target_node: "mother"
       lxc_name: music
-      base_template: music-debian12.tar.gz
+      base_template: docker-debian12.tar.gz
       vmid: "305"
       ip: ${{ github.ref_name == 'main' && '10.1.1.23/24' || '10.1.1.123/24' }}
       memory: "2048"
@@ -24,18 +29,29 @@ jobs:
       storage_size: "16G"
       enable_docker: true
       unprivileged: true
+      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || inputs.force == 'true' }}
     secrets: inherit
 
-  post-deploy:
+  wait-for-boot:
     needs: deploy
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    if: ${{ needs.deploy.outputs.created == 'true' || inputs.force == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    steps:
+      - name: Sleep to allow LXC to boot
+        run: sleep 15
+  # Safe/idempotent
+  setup:
+    needs: wait-for-boot
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: music
+      playbook: services/music/ansible/music-setup.yaml
     secrets: inherit
 
   add-mount:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: music
@@ -43,8 +59,7 @@ jobs:
     secrets: inherit
 
   start-containers:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: [post-deploy, add-mount]
+    needs: add-mount
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: music

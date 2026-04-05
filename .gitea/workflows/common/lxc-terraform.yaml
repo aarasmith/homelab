@@ -40,9 +40,18 @@ on:
         required: true
         type: string
       unprivileged:
-        description: "should lxc be unprivileged"
+        description: "Should lxc be unprivileged"
         required: true
         type: string
+      apply:
+        description: "Whether to run terraform apply (set false for plan-only)"
+        required: false
+        type: string
+        default: 'false'
+    outputs:
+      created:
+        description: "Whether the LXC was just created"
+        value: ${{ jobs.deploy.outputs.created }}
     secrets: inherit
 
 jobs:
@@ -54,6 +63,8 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ vars.AWS_REGION }}
+    outputs:
+      created: ${{ steps.apply.outputs.created }}
 
     steps:
       - name: Checkout repo
@@ -124,5 +135,10 @@ jobs:
         run: terraform -chdir=terraform/modules/lxc plan -out=tfplan -input=false
 
       - name: Terraform Apply
-        if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-        run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan
+        id: apply
+        if: ${{ inputs.apply == 'true' }}
+        run: |
+          terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan | tee /tmp/tf_output.txt
+          if grep -q "^Apply complete! Resources: [1-9][0-9]* added" /tmp/tf_output.txt; then
+            echo "created=true" >> $GITHUB_OUTPUT
+          fi

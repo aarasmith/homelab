@@ -9,6 +9,11 @@ on:
     paths:
       - ".gitea/workflows/services/torrents/lxc.yaml"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Pass 'true' to force apply and post-deploy steps to run"
+        required: false
+        type: string
 
 jobs:
   deploy:
@@ -16,7 +21,7 @@ jobs:
     with:
       target_node: "mother"
       lxc_name: torrents
-      base_template: torrents-debian12.tar.gz
+      base_template: docker-debian12.tar.gz
       vmid: "304"
       ip: ${{ github.ref_name == 'main' && '10.1.1.22/24' || '10.1.1.122/24' }}
       memory: "2048"
@@ -24,19 +29,29 @@ jobs:
       storage_size: "16G"
       enable_docker: true
       unprivileged: true
+      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || inputs.force == 'true' }}
     secrets: inherit
 
-  post-deploy:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+  wait-for-boot:
     needs: deploy
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    if: ${{ needs.deploy.outputs.created == 'true' || inputs.force == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    steps:
+      - name: Sleep to allow LXC to boot
+        run: sleep 15
+  # Safe/idempotent
+  setup:
+    needs: wait-for-boot
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents
+      playbook: services/torrents/ansible/torrents-setup.yaml
     secrets: inherit
 
   add-media-mount:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents
@@ -44,29 +59,15 @@ jobs:
     secrets: inherit
 
   add-tun-device:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents
       playbook: ansible/common/add-tun-device.yaml
     secrets: inherit
 
-  inject-env:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
-    uses: ./.gitea/workflows/common/lxc-ansible.yaml
-    with:
-      lxc_name: torrents
-      playbook: services/torrents/ansible/torrents-inject-env.yaml
-    secrets: inherit
-
   start-containers:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs:
-      - add-media-mount
-      - add-tun-device
-      - inject-env
+    needs: [setup, add-media-mount, add-tun-device]
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents
