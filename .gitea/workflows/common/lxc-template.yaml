@@ -24,9 +24,14 @@ on:
         required: false
         default: "false"
       unprivileged:
-        description: "should lxc be unprivileged"
+        description: "Should lxc be unprivileged"
         required: true
         type: string
+      dump_template:
+        description: "Whether to dump the LXC to a template file and destroy it afterwards"
+        required: false
+        type: boolean
+        default: false
     secrets: inherit
   workflow_dispatch:
 
@@ -52,7 +57,6 @@ jobs:
           ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
 
       - name: Cleanup any already existing LXC template
-        if: ${{ !contains(fromJSON('["main"]'), github.ref_name) }}
         uses: ./.gitea/actions/cleanup-old-lxc-templates
         with:
           lxc_name: ${{ inputs.lxc_name }}-template
@@ -118,8 +122,8 @@ jobs:
       - name: Debug hosts.ini
         run: cat hosts.ini
 
-      - name: Inject ansible pve task
-        if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
+      - name: Inject ansible dump-to-template task
+        if: ${{ inputs.dump_template }}
         run: |
           echo "\n- import_playbook: $GITHUB_WORKSPACE/ansible/common/dump-lxc-to-template.yaml" >> ${{ inputs.playbook }}
 
@@ -131,11 +135,11 @@ jobs:
         run: ansible-playbook -i hosts.ini ${{ inputs.playbook }} --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")
 
       - name: Terraform Destroy
-        if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || failure() }}
+        if: ${{ inputs.dump_template || failure() }}
         run: terraform -chdir=terraform/modules/lxc destroy -auto-approve -input=false
 
       - name: Stop LXC container
-        if: ${{ !contains(fromJSON('["main","dev"]'), github.ref_name) }}
+        if: ${{ !inputs.dump_template }}
         run: |
           ssh -oBatchMode=yes root@${PVE_NODE_IP} "
             if pct status ${LXC_VMID} | grep -q 'status: running'; then

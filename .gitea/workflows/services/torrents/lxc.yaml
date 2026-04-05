@@ -24,19 +24,20 @@ jobs:
       storage_size: "16G"
       enable_docker: true
       unprivileged: true
+      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     secrets: inherit
 
   post-deploy:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     needs: deploy
+    if: ${{ needs.deploy.outputs.applied == 'true' }}
     uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
     with:
       lxc_name: torrents
     secrets: inherit
 
   add-media-mount:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: [deploy, post-deploy]
+    if: ${{ needs.deploy.outputs.applied == 'true' }}
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents
@@ -44,8 +45,8 @@ jobs:
     secrets: inherit
 
   add-tun-device:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: [deploy, post-deploy]
+    if: ${{ needs.deploy.outputs.applied == 'true' }}
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents
@@ -53,8 +54,8 @@ jobs:
     secrets: inherit
 
   inject-env:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: [deploy, post-deploy]
+    if: ${{ needs.deploy.outputs.applied == 'true' }}
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents
@@ -62,11 +63,8 @@ jobs:
     secrets: inherit
 
   start-containers:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs:
-      - add-media-mount
-      - add-tun-device
-      - inject-env
+    needs: [deploy, add-media-mount, add-tun-device, inject-env]
+    if: ${{ needs.deploy.outputs.applied == 'true' }}
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: torrents

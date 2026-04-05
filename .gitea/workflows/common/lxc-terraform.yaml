@@ -40,9 +40,18 @@ on:
         required: true
         type: string
       unprivileged:
-        description: "should lxc be unprivileged"
+        description: "Should lxc be unprivileged"
         required: true
         type: string
+      apply:
+        description: "Whether to run terraform apply (set false for plan-only)"
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      applied:
+        description: "Whether terraform apply was actually run"
+        value: ${{ jobs.deploy.outputs.applied }}
     secrets: inherit
 
 jobs:
@@ -54,6 +63,8 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ vars.AWS_REGION }}
+    outputs:
+      applied: ${{ steps.apply.outputs.applied }}
 
     steps:
       - name: Checkout repo
@@ -124,5 +135,8 @@ jobs:
         run: terraform -chdir=terraform/modules/lxc plan -out=tfplan -input=false
 
       - name: Terraform Apply
-        if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-        run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan
+        id: apply
+        if: ${{ inputs.apply }}
+        run: |
+          terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan
+          echo "applied=true" >> $GITHUB_OUTPUT

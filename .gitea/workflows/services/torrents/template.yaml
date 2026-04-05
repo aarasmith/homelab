@@ -9,6 +9,7 @@ on:
     paths:
       - "services/torrents/ansible/torrents-template.yaml"
       - "services/torrents/docker-compose.yaml"
+      - "services/torrents/config/**"
       - ".gitea/workflows/services/torrents/template.yaml"
   workflow_dispatch:
 
@@ -22,5 +23,5 @@ jobs:
       base_template: docker-debian12.tar.gz
       enable_docker: true
       unprivileged: true
+      dump_template: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     secrets: inherit
-    
