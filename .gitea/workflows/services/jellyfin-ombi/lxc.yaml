@@ -24,18 +24,21 @@ jobs:
       storage_size: "16G"
       enable_docker: false
       unprivileged: true
+      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     secrets: inherit
   
-  post-deploy:
+  wait-for-boot:
     needs: deploy
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
-    with:
-      lxc_name: jellyfin-ombi
-    secrets: inherit
+    if: ${{ needs.deploy.outputs.created == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    steps:
+      - name: Sleep to allow LXC to boot
+        run: sleep 15
        
   add-media-mount:
-    if: ${{ contains(fromJSON('["main"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: jellyfin-ombi
@@ -43,8 +46,7 @@ jobs:
     secrets: inherit
 
   add-cattle-share-mount:
-    if: ${{ contains(fromJSON('["main", "dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: jellyfin-ombi
@@ -52,8 +54,7 @@ jobs:
     secrets: inherit
 
   add-igpu-passthrough:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: jellyfin-ombi
