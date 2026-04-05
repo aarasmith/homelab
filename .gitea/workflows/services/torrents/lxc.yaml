@@ -24,7 +24,7 @@ jobs:
       storage_size: "16G"
       enable_docker: true
       unprivileged: true
-      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) == 'false' }}
+      apply: "true"
       # apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     secrets: inherit
 
