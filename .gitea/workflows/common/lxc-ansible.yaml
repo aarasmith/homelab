@@ -33,23 +33,26 @@ jobs:
         with:
           ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
 
+      # figure out which node to scope to
       - name: Lookup LXC VMID and node
+        id: lxc
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: ${{ inputs.lxc_name }}
-
+      
+      # scope to the PVE node that hosts the LXC
       - name: Scope PVE vars to current environment
         uses: ./.gitea/actions/normalize-pve-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
-          target_node: ${{ env.LXC_NODE }}
+          target_node: ${{ steps.lxc.outputs.node }}
 
       - name: Lookup LXC IP
         uses: ./.gitea/actions/lookup-lxc-ip
         with:
           lxc_node_ip: ${PVE_NODE_IP}
-          vmid: ${LXC_VMID}
+          vmid: ${{ steps.lxc.outputs.vmid }}
 
       - name: Render hosts.ini
         run: |
@@ -62,7 +65,7 @@ jobs:
 
           [pve_host:vars]
           lxc_name=${{ inputs.lxc_name }}
-          vmid=${LXC_VMID}
+          vmid=${{ steps.lxc.outputs.vmid }}
           EOF
 
       - name: Debug hosts.ini

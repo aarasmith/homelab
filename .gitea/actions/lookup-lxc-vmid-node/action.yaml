@@ -1,15 +1,24 @@
 name: "Lookup LXC VMID and Node"
-description: "Find VMID and node of a Proxmox LXC via pvesh and export as env vars"
+description: "Find VMID and node of a Proxmox LXC via pvesh and expose as outputs"
 
 inputs:
   lxc_name:
     description: "Name of the LXC container to look up"
     required: true
 
+outputs:
+  vmid:
+    description: "VMID of the LXC container"
+    value: ${{ steps.lookup.outputs.vmid }}
+  node:
+    description: "Node of the LXC container"
+    value: ${{ steps.lookup.outputs.node }}
+
 runs:
   using: "composite"
   steps:
-    - shell: bash
+    - id: lookup
+      shell: bash
       run: |
         sleep 15
 
@@ -43,5 +52,5 @@ runs:
           exit 1
         fi
 
-        echo "LXC_VMID=$VMID" >> $GITHUB_ENV
-        echo "LXC_NODE=$NODE" >> $GITHUB_ENV
+        echo "vmid=$VMID" >> "$GITHUB_OUTPUT"
+        echo "node=$NODE" >> "$GITHUB_OUTPUT"

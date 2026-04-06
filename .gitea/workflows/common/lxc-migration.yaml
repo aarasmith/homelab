@@ -40,6 +40,7 @@ jobs:
         run: ssh-keyscan -H ${{ inputs.source_host }} >> ~/.ssh/known_hosts
 
       - name: Lookup LXC VMID and node
+        id: lxc
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: ${{ inputs.lxc_name }}
@@ -49,13 +50,13 @@ jobs:
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
-          target_node: ${{ env.LXC_NODE }}
+          target_node: ${{ steps.lxc.outputs.node }}
 
       - name: Lookup LXC IP
         uses: ./.gitea/actions/lookup-lxc-ip
         with:
           lxc_node_ip: ${PVE_NODE_IP}
-          vmid: ${LXC_VMID}
+          vmid: ${{ steps.lxc.outputs.vmid }}
 
       - name: Render hosts.ini
         run: |
