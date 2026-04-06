@@ -35,8 +35,8 @@
         owner: "50000"
         group: "0"
       loop:
-        - /docker/airflow/dags
-        - /docker/airflow/logs
+        - /docker/appdata/airflow/dags
+        - /docker/logs/airflow
 
     - name: Write .env from vault secrets
       copy:

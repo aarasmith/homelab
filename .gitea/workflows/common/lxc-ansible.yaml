@@ -11,6 +11,11 @@ on:
         description: "Absolute path to the ansible playbook to run"
         required: true
         type: string
+      extra_vars:
+        description: "Optional extra vars to pass to ansible-playbook (space-separated key=value pairs)"
+        required: false
+        type: string
+        default: ""
     secrets: inherit
 
 jobs:
@@ -56,6 +61,7 @@ jobs:
           pve ansible_host=${PVE_NODE_IP} ansible_user=root
 
           [pve_host:vars]
+          lxc_name=${{ inputs.lxc_name }}
           vmid=${LXC_VMID}
           EOF
 
@@ -67,4 +73,8 @@ jobs:
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: ansible-playbook -i hosts.ini ${{ inputs.playbook }} --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")
+        run: |
+          EXTRA_VARS="${{ inputs.extra_vars }}"
+          ansible-playbook -i hosts.ini ${{ inputs.playbook }} \
+            --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD") \
+            ${EXTRA_VARS:+--extra-vars "$EXTRA_VARS"}

@@ -50,7 +50,7 @@ jobs:
       playbook: services/arr/ansible/arr-setup.yaml
     secrets: inherit
 
-  add-mount:
+  add-media-mount:
     needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
@@ -58,8 +58,17 @@ jobs:
       playbook: ansible/common/add-unprivileged-nfs-mount.yaml
     secrets: inherit
 
+  add-backup-mount:
+      needs: wait-for-boot
+      uses: ./.gitea/workflows/common/lxc-ansible.yaml
+      with:
+        lxc_name: arr
+        playbook: ansible/common/add-backups-mount.yaml
+        extra_vars: "env=${{ github.ref_name == 'main' && 'prod' || 'dev' }}"
+      secrets: inherit
+
   start-containers:
-    needs: [setup, add-mount]
+    needs: [setup, add-media-mount]
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: arr

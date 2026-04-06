@@ -58,6 +58,15 @@ jobs:
       playbook: ansible/common/add-cattle-share.yaml
     secrets: inherit
 
+  add-backup-mount:
+      needs: wait-for-boot
+      uses: ./.gitea/workflows/common/lxc-ansible.yaml
+      with:
+        lxc_name: jellyfin-ombi
+        playbook: ansible/common/add-backups-mount.yaml
+        extra_vars: "env=${{ github.ref_name == 'main' && 'prod' || 'dev' }}"
+      secrets: inherit
+
   add-igpu-passthrough:
     needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
