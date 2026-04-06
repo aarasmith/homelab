@@ -94,15 +94,17 @@ jobs:
         run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan
 
       - name: Lookup LXC VMID and node
+        id: lxc
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: "${{ inputs.lxc_name }}-template"
 
+      # for templates we always use the default node
       - name: Lookup LXC IP
         uses: ./.gitea/actions/lookup-lxc-ip
         with:
           lxc_node_ip: ${PVE_NODE_IP}
-          vmid: ${LXC_VMID}
+          vmid: ${{ steps.lxc.outputs.vmid }}
 
       - name: Render hosts.ini
         run: |
@@ -114,7 +116,7 @@ jobs:
           pve ansible_host=${PVE_NODE_IP} ansible_user=root
 
           [pve_host:vars]
-          vmid=${LXC_VMID}
+          vmid=${{ steps.lxc.outputs.vmid }}
           template_name=${{ inputs.template_name }}
           templates_dir=${PVE_TEMPLATES_DIR}
           EOF
@@ -142,10 +144,10 @@ jobs:
         if: ${{ inputs.dump_template != 'true' && !failure() }}
         run: |
           ssh -oBatchMode=yes root@${PVE_NODE_IP} "
-            if pct status ${LXC_VMID} | grep -q 'status: running'; then
-              echo 'Stopping container ${LXC_VMID}...'
-              pct stop ${LXC_VMID}
+            if pct status ${{ steps.lxc.outputs.vmid }} | grep -q 'status: running'; then
+              echo 'Stopping container ${{ steps.lxc.outputs.vmid }}...'
+              pct stop ${{ steps.lxc.outputs.vmid }}
             else
-              echo 'Container ${LXC_VMID} is already stopped.'
+              echo 'Container ${{ steps.lxc.outputs.vmid }} is already stopped.'
             fi
           "

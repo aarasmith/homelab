@@ -44,7 +44,9 @@ jobs:
         with:
           ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
 
+      # lookup LXC's host node to scope to
       - name: Lookup LXC VMID and node
+        id: lxc
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: ${{ inputs.lxc_name }}
@@ -54,7 +56,7 @@ jobs:
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
-          target_node: ${{ env.LXC_NODE }}
+          target_node: ${{ steps.lxc.outputs.node }}
 
       - name: Create pve-provider.auto.tfvars
         run: |

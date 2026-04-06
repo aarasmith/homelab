@@ -53,55 +53,49 @@ jobs:
           ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
 
       - name: Lookup VMID and node for LXC 1
+        id: lxc-1
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: ${{ inputs.lxc_name_1 }}
-
-      - name: Store LXC 1 node
-        run: echo "LXC_1_NODE=${LXC_NODE}" >> $GITHUB_ENV
 
       - name: Scope PVE vars for LXC 1 node
         uses: ./.gitea/actions/normalize-pve-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
-          target_node: ${{ env.LXC_1_NODE }}
+          target_node: ${{ steps.lxc-1.outputs.node }}
 
       - name: Store LXC 1 PVE node IP
         run: echo "LXC_1_PVE_NODE_IP=${PVE_NODE_IP}" >> $GITHUB_ENV
 
       - name: Lookup VMID and node for LXC 2
+        id: lxc-2
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: ${{ inputs.lxc_name_2 }}
-
-      - name: Store LXC 2 node
-        run: echo "LXC_2_NODE=${LXC_NODE}" >> $GITHUB_ENV
 
       - name: Scope PVE vars for LXC 2 node
         uses: ./.gitea/actions/normalize-pve-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
-          target_node: ${{ env.LXC_2_NODE }}
+          target_node: ${{ steps.lxc-2.outputs.node }}
 
       - name: Store LXC 2 PVE node IP
         run: echo "LXC_2_PVE_NODE_IP=${PVE_NODE_IP}" >> $GITHUB_ENV
 
       - name: Lookup VMID and node for LXC 3
+        id: lxc-3
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: ${{ inputs.lxc_name_3 }}
-
-      - name: Store LXC 3 node
-        run: echo "LXC_3_NODE=${LXC_NODE}" >> $GITHUB_ENV
 
       - name: Scope PVE vars for LXC 3 node
         uses: ./.gitea/actions/normalize-pve-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
-          target_node: ${{ env.LXC_3_NODE }}
+          target_node: ${{ steps.lxc-3.outputs.node }}
 
       - name: Store LXC 3 PVE node IP
         run: echo "LXC_3_PVE_NODE_IP=${PVE_NODE_IP}" >> $GITHUB_ENV
