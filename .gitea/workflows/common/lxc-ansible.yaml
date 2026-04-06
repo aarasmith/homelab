@@ -49,6 +49,7 @@ jobs:
           target_node: ${{ steps.lxc.outputs.node }}
 
       - name: Lookup LXC IP
+        id: lxc-ip
         uses: ./.gitea/actions/lookup-lxc-ip
         with:
           lxc_node_ip: ${PVE_NODE_IP}
@@ -58,7 +59,7 @@ jobs:
         run: |
           cat > hosts.ini <<EOF
           [lxc]
-          ${{ inputs.lxc_name }} ansible_host=${LXC_IP} ansible_user=root
+          ${{ inputs.lxc_name }} ansible_host=${{ steps.lxc-ip.outputs.ip }} ansible_user=root
 
           [pve_host]
           pve ansible_host=${PVE_NODE_IP} ansible_user=root
