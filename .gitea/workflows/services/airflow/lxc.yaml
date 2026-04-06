@@ -51,6 +51,15 @@ jobs:
       playbook: services/airflow/ansible/airflow-setup.yaml
     secrets: inherit
 
+  add-backup-mount:
+      needs: wait-for-boot
+      uses: ./.gitea/workflows/common/lxc-ansible.yaml
+      with:
+        lxc_name: airflow
+        playbook: ansible/common/add-backups-mount.yaml
+        extra_vars: "env=${{ github.ref_name == 'main' && 'prod' || 'dev' }}"
+      secrets: inherit
+
   start-containers:
     needs: setup
     uses: ./.gitea/workflows/common/lxc-ansible.yaml

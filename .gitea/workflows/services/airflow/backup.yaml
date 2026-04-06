@@ -1,0 +1,12 @@
+name: services | airflow | backup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backup:
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: airflow
+      playbook: ansible/common/backup-appdata.yaml
+    secrets: inherit

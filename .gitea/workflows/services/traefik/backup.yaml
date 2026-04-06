@@ -1,0 +1,12 @@
+name: services | traefik | backup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backup:
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: traefik
+      playbook: ansible/common/backup-appdata.yaml
+    secrets: inherit

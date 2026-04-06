@@ -58,6 +58,15 @@ jobs:
       playbook: ansible/common/add-unprivileged-nfs-mount.yaml
     secrets: inherit
 
+  add-backup-mount:
+      needs: wait-for-boot
+      uses: ./.gitea/workflows/common/lxc-ansible.yaml
+      with:
+        lxc_name: torrents
+        playbook: ansible/common/add-backups-mount.yaml
+        extra_vars: "env=${{ github.ref_name == 'main' && 'prod' || 'dev' }}"
+      secrets: inherit
+
   add-tun-device:
     needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml

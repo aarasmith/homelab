@@ -9,7 +9,7 @@
     - name: Sync DAGs to host
       ansible.builtin.copy:
         src: "{{ service_dir }}/dags/"
-        dest: /docker/airflow/dags/
+        dest: /docker/appdata/airflow/dags/
         owner: root
         group: root
         mode: '0644'

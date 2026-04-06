@@ -41,6 +41,15 @@ jobs:
       - name: Sleep to allow LXC to boot
         run: sleep 15
 
+  add-backup-mount:
+      needs: wait-for-boot
+      uses: ./.gitea/workflows/common/lxc-ansible.yaml
+      with:
+        lxc_name: traefik
+        playbook: ansible/common/add-backups-mount.yaml
+        extra_vars: "env=${{ github.ref_name == 'main' && 'prod' || 'dev' }}"
+      secrets: inherit
+
   start-containers:
     needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml

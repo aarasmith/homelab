@@ -1,0 +1,21 @@
+---
+- name: Backup appdata to NAS
+  hosts: lxc
+  become: yes
+
+  tasks:
+    - name: Stop Docker containers
+      ansible.builtin.shell: docker compose -f /docker/docker-compose.yaml down
+      args:
+        executable: /bin/bash
+
+    - name: Copy appdata to backup mount
+      ansible.builtin.shell: |
+        cp -r /docker/appdata/. /mnt/backups/
+      args:
+        executable: /bin/bash
+
+    - name: Start Docker containers
+      ansible.builtin.shell: docker compose -f /docker/docker-compose.yaml up -d
+      args:
+        executable: /bin/bash
