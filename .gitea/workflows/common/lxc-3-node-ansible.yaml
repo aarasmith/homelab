@@ -7,31 +7,7 @@ on:
         description: "Path to the ansible playbook to run"
         required: true
         type: string
-      lxc_name_1:
-        description: "Name of the first LXC"
-        required: true
-        type: string
-      lxc_name_2:
-        description: "Name of the second LXC"
-        required: true
-        type: string
-      lxc_name_3:
-        description: "Name of the third LXC"
-        required: true
-        type: string
-      lxc_ip_1:
-        description: "IP address of the first LXC (without CIDR)"
-        required: true
-        type: string
-      lxc_ip_2:
-        description: "IP address of the second LXC (without CIDR)"
-        required: true
-        type: string
-      lxc_ip_3:
-        description: "IP address of the third LXC (without CIDR)"
-        required: true
-        type: string
-      group_name:
+      service_name:
         description: "Ansible inventory group name for the LXCs"
         required: true
         type: string
@@ -56,7 +32,7 @@ jobs:
         id: lxc-1
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
-          lxc_name: ${{ inputs.lxc_name_1 }}
+          lxc_name: ${{ inputs.service_name }}-1
 
       - name: Lookup ip for node 1
         id: node-1
@@ -76,7 +52,7 @@ jobs:
         id: lxc-2
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
-          lxc_name: ${{ inputs.lxc_name_2 }}
+          lxc_name: ${{ inputs.service_name }}-2
 
       - name: Lookup ip for node 2
         id: node-2
@@ -96,7 +72,7 @@ jobs:
         id: lxc-3
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
-          lxc_name: ${{ inputs.lxc_name_3 }}
+          lxc_name: ${{ inputs.service_name }}-3
 
       - name: Lookup ip for node 3
         id: node-3
@@ -115,12 +91,12 @@ jobs:
       - name: Render hosts.ini
         run: |
           cat > hosts.ini <<EOF
-          [${{ inputs.group_name }}]
-          ${{ inputs.lxc_name_1 }} ansible_host=${{ steps.lxc-ip-1.outputs.ip }} ansible_user=root
-          ${{ inputs.lxc_name_2 }} ansible_host=${{ steps.lxc-ip-2.outputs.ip }} ansible_user=root
-          ${{ inputs.lxc_name_3 }} ansible_host=${{ steps.lxc-ip-3.outputs.ip }} ansible_user=root
+          [${{ inputs.service_name }}]
+          ${{ inputs.service_name}}-1 ansible_host=${{ steps.lxc-ip-1.outputs.ip }} ansible_user=root
+          ${{ inputs.service_name}}-2 ansible_host=${{ steps.lxc-ip-2.outputs.ip }} ansible_user=root
+          ${{ inputs.service_name}}-3 ansible_host=${{ steps.lxc-ip-3.outputs.ip }} ansible_user=root
 
-          [${{ inputs.group_name }}:vars]
+          [${{ inputs.service_name }}:vars]
           lxc_1_ip=${{ steps.lxc-ip-1.outputs.ip }}
           lxc_2_ip=${{ steps.lxc-ip-2.outputs.ip }}
           lxc_3_ip=${{ steps.lxc-ip-3.outputs.ip }}

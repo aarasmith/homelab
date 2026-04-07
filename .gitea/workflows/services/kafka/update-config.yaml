@@ -11,22 +11,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  start-lxc:
+  start-lxc-1:
     uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
     with:
-      lxc_name: kafka
+      lxc_name: kafka-1
+    secrets: inherit
+  start-lxc-2:
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      lxc_name: kafka-2
+    secrets: inherit
+  start-lxc-3:
+    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    with:
+      lxc_name: kafka-3
     secrets: inherit
 
   configure:
-    needs: start-lxc
-    uses: ./.gitea/workflows/common/lxc-multi-ansible.yaml
+    needs: [start-lxc-1, start-lxc-2, start-lxc-3]
+    uses: ./.gitea/workflows/common/lxc-3-node-ansible.yaml
     with:
       playbook: services/kafka/ansible/kafka-setup.yaml
-      group_name: kafka
-      lxc_name_1: kafka-1
-      lxc_name_2: kafka-2
-      lxc_name_3: kafka-3
-      lxc_ip_1: ${{ github.ref_name == 'main' && '10.1.1.11' || '10.1.1.111' }}
-      lxc_ip_2: ${{ github.ref_name == 'main' && '10.1.1.12' || '10.1.1.112' }}
-      lxc_ip_3: ${{ github.ref_name == 'main' && '10.1.1.13' || '10.1.1.113' }}
+      service_name: kafka
     secrets: inherit
