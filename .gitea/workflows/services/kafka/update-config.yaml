@@ -12,17 +12,17 @@ on:
 
 jobs:
   start-lxc-1:
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    uses: ./.gitea/workflows/common/lxc-start.yaml
     with:
       lxc_name: kafka-1
     secrets: inherit
   start-lxc-2:
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    uses: ./.gitea/workflows/common/lxc-start.yaml
     with:
       lxc_name: kafka-2
     secrets: inherit
   start-lxc-3:
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    uses: ./.gitea/workflows/common/lxc-start.yaml
     with:
       lxc_name: kafka-3
     secrets: inherit

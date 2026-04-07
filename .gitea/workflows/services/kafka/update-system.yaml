@@ -4,21 +4,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  update-1:
-    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+  start-lxc-1:
+    uses: ./.gitea/workflows/common/lxc-start.yaml
     with:
       lxc_name: kafka-1
-      playbook: ansible/common/update-docker-lxc.yaml
     secrets: inherit
-  update-2:
-    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+  start-lxc-2:
+    uses: ./.gitea/workflows/common/lxc-start.yaml
     with:
       lxc_name: kafka-2
-      playbook: ansible/common/update-docker-lxc.yaml
     secrets: inherit
-  update-3:
-    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+  start-lxc-3:
+    uses: ./.gitea/workflows/common/lxc-start.yaml
     with:
       lxc_name: kafka-3
+    secrets: inherit
+  
+  update:
+    needs: [start-lxc-1, start-lxc-2, start-lxc-3]
+    uses: ./.gitea/workflows/common/lxc-3-node-ansible.yaml
+    with:
+      service_name: kafka
       playbook: ansible/common/update-docker-lxc.yaml
     secrets: inherit
