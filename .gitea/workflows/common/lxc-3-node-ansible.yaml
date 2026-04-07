@@ -58,15 +58,19 @@ jobs:
         with:
           lxc_name: ${{ inputs.lxc_name_1 }}
 
-      - name: Scope PVE vars for LXC 1 node
-        uses: ./.gitea/actions/normalize-pve-env
+      - name: Lookup ip for node 1
+        id: node-1
+        uses: ./.gitea/actions/lookup-pve-node-ip
         with:
-          secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
           target_node: ${{ steps.lxc-1.outputs.node }}
 
-      - name: Store LXC 1 PVE node IP
-        run: echo "LXC_1_PVE_NODE_IP=${PVE_NODE_IP}" >> $GITHUB_ENV
+      - name: Lookup ip for LXC 1
+        id: lxc-ip-1
+        uses: ./.gitea/actions/lookup-lxc-ip
+        with:
+          lxc_node_ip: ${{ steps.node-1.outputs.ip }}
+          vmid: ${{ steps.lxc-1.outputs.vmid }}
 
       - name: Lookup VMID and node for LXC 2
         id: lxc-2
@@ -74,15 +78,19 @@ jobs:
         with:
           lxc_name: ${{ inputs.lxc_name_2 }}
 
-      - name: Scope PVE vars for LXC 2 node
-        uses: ./.gitea/actions/normalize-pve-env
+      - name: Lookup ip for node 2
+        id: node-2
+        uses: ./.gitea/actions/lookup-pve-node-ip
         with:
-          secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
           target_node: ${{ steps.lxc-2.outputs.node }}
 
-      - name: Store LXC 2 PVE node IP
-        run: echo "LXC_2_PVE_NODE_IP=${PVE_NODE_IP}" >> $GITHUB_ENV
+      - name: Lookup ip for LXC 2
+        id: lxc-ip-2
+        uses: ./.gitea/actions/lookup-lxc-ip
+        with:
+          lxc_node_ip: ${{ steps.node-2.outputs.ip }}
+          vmid: ${{ steps.lxc-2.outputs.vmid }}
 
       - name: Lookup VMID and node for LXC 3
         id: lxc-3
@@ -90,33 +98,37 @@ jobs:
         with:
           lxc_name: ${{ inputs.lxc_name_3 }}
 
-      - name: Scope PVE vars for LXC 3 node
-        uses: ./.gitea/actions/normalize-pve-env
+      - name: Lookup ip for node 3
+        id: node-3
+        uses: ./.gitea/actions/lookup-pve-node-ip
         with:
-          secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
           target_node: ${{ steps.lxc-3.outputs.node }}
 
-      - name: Store LXC 3 PVE node IP
-        run: echo "LXC_3_PVE_NODE_IP=${PVE_NODE_IP}" >> $GITHUB_ENV
+      - name: Lookup ip for LXC 3
+        id: lxc-ip-3
+        uses: ./.gitea/actions/lookup-lxc-ip
+        with:
+          lxc_node_ip: ${{ steps.node-3.outputs.ip }}
+          vmid: ${{ steps.lxc-3.outputs.vmid }}
 
       - name: Render hosts.ini
         run: |
           cat > hosts.ini <<EOF
           [${{ inputs.group_name }}]
-          ${{ inputs.lxc_name_1 }} ansible_host=${{ inputs.lxc_ip_1 }} ansible_user=root
-          ${{ inputs.lxc_name_2 }} ansible_host=${{ inputs.lxc_ip_2 }} ansible_user=root
-          ${{ inputs.lxc_name_3 }} ansible_host=${{ inputs.lxc_ip_3 }} ansible_user=root
+          ${{ inputs.lxc_name_1 }} ansible_host=${{ steps.lxc-ip-1.outputs.ip }} ansible_user=root
+          ${{ inputs.lxc_name_2 }} ansible_host=${{ steps.lxc-ip-2.outputs.ip }} ansible_user=root
+          ${{ inputs.lxc_name_3 }} ansible_host=${{ steps.lxc-ip-3.outputs.ip }} ansible_user=root
 
           [${{ inputs.group_name }}:vars]
-          broker_1_ip=${{ inputs.lxc_ip_1 }}
-          broker_2_ip=${{ inputs.lxc_ip_2 }}
-          broker_3_ip=${{ inputs.lxc_ip_3 }}
+          lxc_1_ip=${{ steps.lxc-ip-1.outputs.ip }}
+          lxc_2_ip=${{ steps.lxc-ip-2.outputs.ip }}
+          lxc_3_ip=${{ steps.lxc-ip-3.outputs.ip }}
 
           [pve_host]
-          pve-1 ansible_host=${LXC_1_PVE_NODE_IP} ansible_user=root
-          pve-2 ansible_host=${LXC_2_PVE_NODE_IP} ansible_user=root
-          pve-3 ansible_host=${LXC_3_PVE_NODE_IP} ansible_user=root
+          pve-1 ansible_host=${{ steps.node-1.outputs.ip }} ansible_user=root
+          pve-2 ansible_host=${{ steps.node-2.outputs.ip }} ansible_user=root
+          pve-3 ansible_host=${{ steps.node-3.outputs.ip }} ansible_user=root
           EOF
 
       - name: Debug hosts.ini
