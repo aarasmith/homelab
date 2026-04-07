@@ -52,7 +52,7 @@ services:
       - "8080:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: homelab
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: {{ broker_1_ip }}:9094,{{ broker_2_ip }}:9094,{{ broker_3_ip }}:9094
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: {{ lxc_1_ip }}:9094,{{ lxc_2_ip }}:9094,{{ lxc_3_ip }}:9094
     restart: unless-stopped
 
 

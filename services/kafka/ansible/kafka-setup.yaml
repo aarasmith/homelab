@@ -23,7 +23,7 @@
 
     - name: Build controller quorum voters string
       set_fact:
-        quorum_voters: "1@{{ broker_1_ip }}:9093,2@{{ broker_2_ip }}:9093,3@{{ broker_3_ip }}:9093"
+        quorum_voters: "1@{{ lxc_1_ip }}:9093,2@{{ lxc_2_ip }}:9093,3@{{ lxc_3_ip }}:9093"
 
     - name: Render docker-compose.yaml from jinja2 template
       template:
