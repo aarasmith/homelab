@@ -32,16 +32,16 @@ jobs:
         with:
           lxc_name: ${{ inputs.lxc_name }}
 
-      - name: Scope PVE vars to current environment and target node
-        uses: ./.gitea/actions/normalize-pve-env
+      - name: Lookup ip for node
+        id: node
+        uses: ./.gitea/actions/lookup-pve-node-ip
         with:
-          secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
           target_node: ${{ steps.lxc.outputs.node }}
 
       # This requires that PVE vars are scoped to the correct environment AND node which hosts the LXC
       - name: Ensure LXC is running
-        run: ssh -oBatchMode=yes root@${PVE_NODE_IP} "pct start ${{ steps.lxc.outputs.vmid }} || true"
+        run: ssh -oBatchMode=yes root@${{ steps.node.outputs.ip }} "pct start ${{ steps.lxc.outputs.vmid }} || true"
 
       - name: Sleep to allow LXC to come online
         run: sleep 15

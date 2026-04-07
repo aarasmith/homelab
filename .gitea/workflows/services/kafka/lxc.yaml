@@ -81,8 +81,5 @@ jobs:
     uses: ./.gitea/workflows/common/lxc-3-node-ansible.yaml
     with:
       playbook: services/kafka/ansible/kafka-setup.yaml
-      group_name: kafka
-      lxc_name_1: kafka-1
-      lxc_name_2: kafka-2
-      lxc_name_3: kafka-3
+      service_name: kafka
     secrets: inherit
