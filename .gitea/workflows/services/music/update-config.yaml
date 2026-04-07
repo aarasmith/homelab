@@ -12,7 +12,7 @@ on:
 
 jobs:
   start-lxc:
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    uses: ./.gitea/workflows/common/lxc-start.yaml
     with:
       lxc_name: music
     secrets: inherit
