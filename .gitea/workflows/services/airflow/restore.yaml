@@ -1,0 +1,19 @@
+name: services | airflow | restore
+
+on:
+  workflow_dispatch:
+
+jobs:
+  start-lxc:
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: airflow
+    secrets: inherit
+
+  restore:
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: airflow
+      playbook: ansible/common/restore-appdata.yaml
+    secrets: inherit

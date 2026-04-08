@@ -76,8 +76,10 @@ jobs:
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+          RESTIC_PASSWORD: "${{ secrets.RESTIC_PASSWORD }}"
         run: |
           EXTRA_VARS="${{ inputs.extra_vars }}"
           ansible-playbook -i hosts.ini ${{ inputs.playbook }} \
             --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD") \
+            --extra-vars "restic_password='$RESTIC_PASSWORD'" \
             ${EXTRA_VARS:+--extra-vars "$EXTRA_VARS"}
