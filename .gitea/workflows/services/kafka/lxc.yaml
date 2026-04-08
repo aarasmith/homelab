@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - dev
+      - "release/**"
       - "feature/**"
     paths:
       - ".gitea/workflows/services/kafka/lxc.yaml"

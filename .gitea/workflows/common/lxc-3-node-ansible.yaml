@@ -36,7 +36,7 @@ jobs:
 
       - name: Lookup ip for node 1
         id: node-1
-        uses: ./.gitea/actions/lookup-pve-node-ip
+        uses: ./.gitea/actions/get-pve-node-ip
         with:
           vars_json: ${{ toJson(vars) }}
           target_node: ${{ steps.lxc-1.outputs.node }}
@@ -56,7 +56,7 @@ jobs:
 
       - name: Lookup ip for node 2
         id: node-2
-        uses: ./.gitea/actions/lookup-pve-node-ip
+        uses: ./.gitea/actions/get-pve-node-ip
         with:
           vars_json: ${{ toJson(vars) }}
           target_node: ${{ steps.lxc-2.outputs.node }}
@@ -76,7 +76,7 @@ jobs:
 
       - name: Lookup ip for node 3
         id: node-3
-        uses: ./.gitea/actions/lookup-pve-node-ip
+        uses: ./.gitea/actions/get-pve-node-ip
         with:
           vars_json: ${{ toJson(vars) }}
           target_node: ${{ steps.lxc-3.outputs.node }}

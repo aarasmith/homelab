@@ -17,12 +17,16 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Lookup environment
+      id: lookup-env
+      uses: ./.gitea/actions/lookup-env
+
     - id: lookup
       shell: bash
       run: |
         sleep 15
 
-        PVE_LOOKUP_IP=${{ github.ref_name == 'main' && vars.PVE_NODE_IP || vars.PVE_NODE_IP_DEV }}
+        PVE_LOOKUP_IP=${{ steps.lookup-env.outputs.env == 'prod' && vars.PVE_DEFAULT_NODE_IP || vars.PVE_DEFAULT_NODE_IP_DEV }}
 
         VMID=$(ssh -oBatchMode=yes root@${PVE_LOOKUP_IP} \
           "pvesh get /cluster/resources --type vm --output-format yaml \

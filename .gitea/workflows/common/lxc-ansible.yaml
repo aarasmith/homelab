@@ -39,12 +39,11 @@ jobs:
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: ${{ inputs.lxc_name }}
-      
-      # scope to the PVE node that hosts the LXC
-      - name: Scope PVE vars to current environment
-        uses: ./.gitea/actions/normalize-pve-env
+
+      - name: Lookup ip for PVE node
+        id: node
+        uses: ./.gitea/actions/get-pve-node-ip
         with:
-          secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
           target_node: ${{ steps.lxc.outputs.node }}
 
@@ -52,7 +51,7 @@ jobs:
         id: lxc-ip
         uses: ./.gitea/actions/lookup-lxc-ip
         with:
-          lxc_node_ip: ${PVE_NODE_IP}
+          lxc_node_ip: ${{ steps.node.outputs.ip }}
           vmid: ${{ steps.lxc.outputs.vmid }}
 
       - name: Render hosts.ini
@@ -62,7 +61,7 @@ jobs:
           ${{ inputs.lxc_name }} ansible_host=${{ steps.lxc-ip.outputs.ip }} ansible_user=root
 
           [pve_host]
-          pve ansible_host=${PVE_NODE_IP} ansible_user=root
+          pve ansible_host=${{ steps.node.outputs.ip }} ansible_user=root
 
           [pve_host:vars]
           lxc_name=${{ inputs.lxc_name }}
