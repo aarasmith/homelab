@@ -20,5 +20,5 @@ runs:
           ssh-keyscan -H ${{ vars.PVE_NODE_IP_FISH }} >> ~/.ssh/known_hosts
           ssh-keyscan -H ${{ vars.PVE_NODE_IP_FASTFOOD }} >> ~/.ssh/known_hosts
         else
-          ssh-keyscan -H ${{ vars.PVE_NODE_IP_DEV }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ vars.PVE_DEFAULT_NODE_IP_DEV }} >> ~/.ssh/known_hosts
         fi

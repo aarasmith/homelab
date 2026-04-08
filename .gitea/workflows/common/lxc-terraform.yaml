@@ -71,25 +71,30 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Scope AWS vars to current environment
-        uses: ./.gitea/actions/normalize-aws-env
+        id: scope-aws
+        uses: ./.gitea/actions/scope-aws-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
 
       - name: Scope PVE vars to current environment
-        uses: ./.gitea/actions/normalize-pve-env
+        id: scope-pve
+        uses: ./.gitea/actions/scope-pve-env
         with:
           secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
-          target_node: ${{ github.ref_name == 'main' && inputs.target_node || vars.PVE_DEFAULT_TARGET_NODE_DEV }}
 
       - name: Create pve-provider.auto.tfvars
         run: |
           cat > terraform/modules/lxc/pve-provider.auto.tfvars <<EOF
-          pm_user         = "${PVE_USER}"
-          pm_password     = "${PVE_PASSWORD}"
-          pm_api_url      = "${PVE_API_URL}"
+          pm_user         = "${{ steps.scope-pve.outputs.pve_user }}"
+          pm_password     = "${{ steps.scope-pve.outputs.pve_password }}"
+          pm_api_url      = "${{ steps.scope-pve.outputs.pve_api_url }}"
           EOF
+      
+      - name: Lookup environment
+        id: lookup-env
+        uses: ./.gitea/actions/lookup-env
 
       - name: Create vars.auto.tfvars
         run: |
@@ -97,10 +102,10 @@ jobs:
           lxc_password   = "${{ secrets.LXC_PASSWORD }}"
           ssh_public_key = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
           gateway        = "${{ vars.GATEWAY }}"
-          storage        = "${PVE_DISK_STORAGE}"
-          target_node    = "${{ github.ref_name == 'main' && inputs.target_node || env.PVE_DEFAULT_TARGET_NODE }}"
+          storage        = "${{ steps.scope-pve.outputs.pve_disk_storage }}"
+          target_node    = "${{ steps.lookup-env.outputs.env == 'prod' && inputs.target_node || vars.PVE_DEFAULT_NODE_DEV }}"
           hostname       = "${{ inputs.lxc_name }}"
-          ostemplate     = "${{ (github.ref_name == 'main' && 'truenas' || 'local') }}:vztmpl/${{ inputs.base_template }}"
+          ostemplate     = "${{ (steps.lookup-env.outputs.env == 'prod' && 'truenas' || 'local') }}:vztmpl/${{ inputs.base_template }}"
           vmid           = "${{ inputs.vmid }}"
           ip             = "${{ inputs.ip }}"
           memory         = ${{ inputs.memory }}
@@ -115,7 +120,7 @@ jobs:
           cat > terraform/modules/lxc/backend.tf <<EOF
           terraform {
             backend "s3" {
-              bucket = "${AWS_TF_BACKEND_BUCKET}"
+              bucket = "${{ steps.scope-aws.outputs.aws_tf_backend_bucket }}"
               region = "${{ vars.AWS_REGION }}"
               key    = "${{ inputs.lxc_name }}.tfstate"
             }

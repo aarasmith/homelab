@@ -34,7 +34,7 @@ jobs:
 
       - name: Lookup ip for node
         id: node
-        uses: ./.gitea/actions/lookup-pve-node-ip
+        uses: ./.gitea/actions/get-pve-node-ip
         with:
           vars_json: ${{ toJson(vars) }}
           target_node: ${{ steps.lxc.outputs.node }}
