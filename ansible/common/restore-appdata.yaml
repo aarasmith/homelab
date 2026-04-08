@@ -1,5 +1,5 @@
 ---
-- name: Backup appdata to NAS via restic
+- name: Restore appdata from NAS via restic
   hosts: lxc
   become: yes
 
@@ -9,32 +9,26 @@
         name: restic
         state: present
         update_cache: yes
-
+        
     - name: Stop Docker containers
       ansible.builtin.shell: docker compose -f /docker/docker-compose.yaml down
       args:
         executable: /bin/bash
 
-    - name: Initialise restic repo if not already done
-      ansible.builtin.shell: |
-        restic -r /mnt/backups init
-      args:
-        executable: /bin/bash
-      environment:
-        RESTIC_PASSWORD: "{{ restic_password }}"
-      ignore_errors: yes
+    - name: Clear existing appdata
+      ansible.builtin.file:
+        path: /docker/appdata
+        state: absent
 
-    - name: Backup appdata with restic
-      ansible.builtin.shell: |
-        restic -r /mnt/backups backup /docker/appdata
-      args:
-        executable: /bin/bash
-      environment:
-        RESTIC_PASSWORD: "{{ restic_password }}"
+    - name: Recreate appdata directory
+      ansible.builtin.file:
+        path: /docker/appdata
+        state: directory
+        mode: "0775"
 
-    - name: Keep last 5 snapshots
+    - name: Restore latest snapshot from restic
       ansible.builtin.shell: |
-        restic -r /mnt/backups forget --keep-last 5 --prune
+        restic -r /mnt/backups restore latest --target /
       args:
         executable: /bin/bash
       environment:
