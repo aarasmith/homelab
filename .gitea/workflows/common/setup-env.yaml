@@ -1,0 +1,25 @@
+name: common | setup-env
+
+on:
+  workflow_call:
+    outputs:
+      deploy_env:
+        description: "Resolved deployment environment"
+        value: ${{ jobs.setup.outputs.deploy_env }}
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+
+    outputs:
+      deploy_env: ${{ steps.lookup.outputs.env }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      
+      - name: lookup environment
+        id: lookup
+        uses: ./.gitea/actions/lookup-env

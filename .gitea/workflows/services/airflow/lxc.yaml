@@ -16,16 +16,20 @@ on:
         required: false
         type: string
 
-
 jobs:
+  setup-env:
+    #provides `deploy_env` as an output
+    uses: ./.gitea/workflows/common/setup-env.yaml
+
   deploy:
+    needs: setup-env
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
       target_node: "fastfood"
       lxc_name: airflow
       base_template: docker-debian12.tar.gz
       vmid: "303"
-      ip: ${{ github.ref_name == 'main' && '10.1.1.30/24' || '10.1.1.130/24' }}
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.30/24' || '10.1.1.130/24' }}
       memory: "4096"
       cores: "2"
       storage_size: "32G"
