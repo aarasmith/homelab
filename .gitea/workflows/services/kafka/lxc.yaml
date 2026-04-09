@@ -18,14 +18,19 @@ on:
         type: string
 
 jobs:
+  setup-env:
+    #provides `deploy_env` as an output
+    uses: ./.gitea/workflows/common/setup-env.yaml
+        
   deploy-broker-1:
+    needs: setup-env
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
       target_node: "mother"
       lxc_name: kafka-1
       base_template: docker-debian12.tar.gz
       vmid: "310"
-      ip: ${{ github.ref_name == 'main' && '10.1.1.11/24' || '10.1.1.111/24' }}
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.11/24' || '10.1.1.111/24' }}
       memory: "2048"
       cores: "1"
       storage_size: "32G"
@@ -35,13 +40,14 @@ jobs:
     secrets: inherit
 
   deploy-broker-2:
+    needs: setup-env
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
       target_node: "fish"
       lxc_name: kafka-2
       base_template: docker-debian12.tar.gz
       vmid: "311"
-      ip: ${{ github.ref_name == 'main' && '10.1.1.12/24' || '10.1.1.112/24' }}
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.12/24' || '10.1.1.112/24' }}
       memory: "2048"
       cores: "1"
       storage_size: "32G"
@@ -51,13 +57,14 @@ jobs:
     secrets: inherit
 
   deploy-broker-3:
+    needs: setup-env
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
       target_node: "fastfood"
       lxc_name: kafka-3
       base_template: docker-debian12.tar.gz
       vmid: "312"
-      ip: ${{ github.ref_name == 'main' && '10.1.1.13/24' || '10.1.1.113/24' }}
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.13/24' || '10.1.1.113/24' }}
       memory: "2048"
       cores: "1"
       storage_size: "32G"
