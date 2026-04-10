@@ -17,7 +17,7 @@
     - name: Add mount point
       command: >
         pct set {{ vmid }} -mp2
-        /mnt/backups/services/{{ env }}/{{ lxc_name }},mp=/mnt/backups
+        /mnt/backups/services/{{ env }}/{{ lxc_name }},mp=/mnt/backups,replicate=0
       when: >
-        ('mp2: /mnt/backups/services/' + env + '/' + lxc_name + ',mp=/mnt/backups')
+        ('mp2: /mnt/backups/services/' + env + '/' + lxc_name + ',mp=/mnt/backups,replicate=0')
         not in pct_config.stdout

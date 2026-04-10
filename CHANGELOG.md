@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.2.2] - 2026-04-10
+
+### Added
+- add `replication=0` to external mount point setups in `add-backup-mounts`, `add-cattle-share`, and `add-unprivileged-nfs-mount` to allow setting replication jobs across nodes
+
 ## [1.2.1] - 2026-04-10
 
 ### Fixed
