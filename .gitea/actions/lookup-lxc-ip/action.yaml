@@ -9,10 +9,16 @@ inputs:
     description: "VMID of the LXC to look up"
     required: true
 
+outputs:
+  ip:
+    description: "IP address of the LXC"
+    value: ${{ steps.lookup.outputs.ip }}
+
 runs:
   using: "composite"
   steps:
-    - shell: bash
+    - id: lookup
+      shell: bash
       run: |
         IP=$(ssh -oBatchMode=yes root@${{ inputs.lxc_node_ip }} \
           "pct exec ${{ inputs.vmid }} ip addr show | grep -oP '(?<=inet )10\.1\.1\.\d+'")
@@ -22,4 +28,4 @@ runs:
           exit 1
         fi
 
-        echo "LXC_IP=$IP" >> $GITHUB_ENV
+        echo "ip=$IP" >> "$GITHUB_OUTPUT"

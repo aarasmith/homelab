@@ -1,0 +1,46 @@
+---
+- name: Backup appdata to NAS via restic
+  hosts: lxc
+  become: yes
+
+  tasks:
+    - name: Ensure restic is installed
+      ansible.builtin.apt:
+        name: restic
+        state: present
+        update_cache: yes
+
+    - name: Stop Docker containers
+      ansible.builtin.shell: docker compose -f /docker/docker-compose.yaml down
+      args:
+        executable: /bin/bash
+
+    - name: Initialise restic repo if not already done
+      ansible.builtin.shell: |
+        restic -r /mnt/backups init
+      args:
+        executable: /bin/bash
+      environment:
+        RESTIC_PASSWORD: "{{ restic_password }}"
+      ignore_errors: yes
+
+    - name: Backup appdata with restic
+      ansible.builtin.shell: |
+        restic -r /mnt/backups backup /docker/appdata
+      args:
+        executable: /bin/bash
+      environment:
+        RESTIC_PASSWORD: "{{ restic_password }}"
+
+    - name: Keep last 5 snapshots
+      ansible.builtin.shell: |
+        restic -r /mnt/backups forget --keep-last 5 --prune
+      args:
+        executable: /bin/bash
+      environment:
+        RESTIC_PASSWORD: "{{ restic_password }}"
+
+    - name: Start Docker containers
+      ansible.builtin.shell: docker compose -f /docker/docker-compose.yaml up -d
+      args:
+        executable: /bin/bash

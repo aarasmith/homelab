@@ -1,0 +1,40 @@
+---
+- name: Restore appdata from NAS via restic
+  hosts: lxc
+  become: yes
+
+  tasks:
+    - name: Ensure restic is installed
+      ansible.builtin.apt:
+        name: restic
+        state: present
+        update_cache: yes
+        
+    - name: Stop Docker containers
+      ansible.builtin.shell: docker compose -f /docker/docker-compose.yaml down
+      args:
+        executable: /bin/bash
+
+    - name: Clear existing appdata
+      ansible.builtin.file:
+        path: /docker/appdata
+        state: absent
+
+    - name: Recreate appdata directory
+      ansible.builtin.file:
+        path: /docker/appdata
+        state: directory
+        mode: "0775"
+
+    - name: Restore latest snapshot from restic
+      ansible.builtin.shell: |
+        restic -r /mnt/backups restore latest --target /
+      args:
+        executable: /bin/bash
+      environment:
+        RESTIC_PASSWORD: "{{ restic_password }}"
+
+    - name: Start Docker containers
+      ansible.builtin.shell: docker compose -f /docker/docker-compose.yaml up -d
+      args:
+        executable: /bin/bash

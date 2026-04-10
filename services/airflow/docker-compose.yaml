@@ -20,9 +20,10 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
     AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
+    AIRFLOW__CORE__TEST_CONNECTION: "Enabled"
   volumes:
-    - /docker/airflow/dags:/opt/airflow/dags
-    - /docker/airflow/logs:/opt/airflow/logs
+    - /docker/appdata/airflow/dags:/opt/airflow/dags
+    - /docker/logs/airflow:/opt/airflow/logs
   depends_on:
     airflow-postgres:
       condition: service_healthy
@@ -41,7 +42,7 @@ services:
       retries: 5
       timeout: 5s
     volumes:
-      - airflow_postgres:/var/lib/postgresql/data
+      - /docker/appdata/airflow-postgres:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${AIRFLOW_PG_USER}
       POSTGRES_PASSWORD: ${AIRFLOW_PG_PASS}

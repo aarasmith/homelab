@@ -1,0 +1,19 @@
+name: services | traefik | restore
+
+on:
+  workflow_dispatch:
+
+jobs:
+  start-lxc:
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: traefik
+    secrets: inherit
+
+  restore:
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: traefik
+      playbook: ansible/common/restore-appdata.yaml
+    secrets: inherit

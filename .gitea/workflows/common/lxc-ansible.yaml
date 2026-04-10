@@ -11,6 +11,11 @@ on:
         description: "Absolute path to the ansible playbook to run"
         required: true
         type: string
+      extra_vars:
+        description: "Optional extra vars to pass to ansible-playbook (space-separated key=value pairs)"
+        required: false
+        type: string
+        default: ""
     secrets: inherit
 
 jobs:
@@ -28,35 +33,39 @@ jobs:
         with:
           ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
 
+      # figure out which node to scope to
       - name: Lookup LXC VMID and node
+        id: lxc
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: ${{ inputs.lxc_name }}
 
-      - name: Scope PVE vars to current environment
-        uses: ./.gitea/actions/normalize-pve-env
+      - name: Lookup ip for PVE node
+        id: node
+        uses: ./.gitea/actions/get-pve-node-ip
         with:
-          secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
-          target_node: ${{ env.LXC_NODE }}
+          target_node: ${{ steps.lxc.outputs.node }}
 
       - name: Lookup LXC IP
+        id: lxc-ip
         uses: ./.gitea/actions/lookup-lxc-ip
         with:
-          lxc_node_ip: ${PVE_NODE_IP}
-          vmid: ${LXC_VMID}
+          lxc_node_ip: ${{ steps.node.outputs.ip }}
+          vmid: ${{ steps.lxc.outputs.vmid }}
 
       - name: Render hosts.ini
         run: |
           cat > hosts.ini <<EOF
           [lxc]
-          ${{ inputs.lxc_name }} ansible_host=${LXC_IP} ansible_user=root
+          ${{ inputs.lxc_name }} ansible_host=${{ steps.lxc-ip.outputs.ip }} ansible_user=root
 
           [pve_host]
-          pve ansible_host=${PVE_NODE_IP} ansible_user=root
+          pve ansible_host=${{ steps.node.outputs.ip }} ansible_user=root
 
           [pve_host:vars]
-          vmid=${LXC_VMID}
+          lxc_name=${{ inputs.lxc_name }}
+          vmid=${{ steps.lxc.outputs.vmid }}
           EOF
 
       - name: Debug hosts.ini
@@ -67,4 +76,10 @@ jobs:
         env:
           ANSIBLE_CONFIG: ansible/ansible.cfg
           ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
-        run: ansible-playbook -i hosts.ini ${{ inputs.playbook }} --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")
+          RESTIC_PASSWORD: "${{ secrets.RESTIC_PASSWORD }}"
+        run: |
+          EXTRA_VARS="${{ inputs.extra_vars }}"
+          ansible-playbook -i hosts.ini ${{ inputs.playbook }} \
+            --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD") \
+            --extra-vars "restic_password='$RESTIC_PASSWORD'" \
+            ${EXTRA_VARS:+--extra-vars "$EXTRA_VARS"}

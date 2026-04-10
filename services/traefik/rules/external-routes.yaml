@@ -1,6 +1,6 @@
 http:
   routers:
-{% for name, svc in services.items() %}
+{%- for name, svc in services.items() %}
     {{ name }}-router:
       entryPoints:
         - "http"
@@ -9,15 +9,17 @@ http:
       service: {{ name }}-service
       middlewares:
         - {{ svc.middleware }}
-{% endfor %}
+{%- endfor %}
 
   services:
-{% for name, svc in services.items() %}
+{%- for name, svc in services.items() %}
     {{ name }}-service:
       loadBalancer:
         servers:
-          - url: "http://{% if env == 'dev' %}{{ svc.dev_ip }}{% else %}{{ svc.prod_ip }}{% endif %}:{{ svc.port }}"
-{% endfor %}
+{%- for server in svc.servers %}
+          - url: "http://{% if env == 'dev' %}{{ server.dev_ip }}{% else %}{{ server.prod_ip }}{% endif %}:{{ svc.port }}"
+{%- endfor %}
+{%- endfor %}
 
 tcp:
   routers:

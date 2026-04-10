@@ -1,0 +1,23 @@
+#Expects: env (prod|dev) as extra variable (passed in lxc-ansible workflow)
+- name: Mount backups share on host node to unprivileged LXC
+  hosts: pve_host
+  become: yes
+  tasks:
+    - name: Ensure backup directory exists on PVE host
+      file:
+        path: /mnt/backups/services/{{ env }}/{{ lxc_name }}
+        state: directory
+        mode: "0775"
+
+    - name: Check if mp2 is already configured
+      command: pct config {{ vmid }}
+      register: pct_config
+      changed_when: false
+
+    - name: Add mount point
+      command: >
+        pct set {{ vmid }} -mp2
+        /mnt/backups/services/{{ env }}/{{ lxc_name }},mp=/mnt/backups
+      when: >
+        ('mp2: /mnt/backups/services/' + env + '/' + lxc_name + ',mp=/mnt/backups')
+        not in pct_config.stdout

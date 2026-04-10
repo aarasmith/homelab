@@ -1,0 +1,65 @@
+name: "Scope PVE environment variables"
+description: "Scope prod/dev secrets & vars for PVE"
+
+inputs:
+  secrets_json:
+    required: true
+    description: "All secrets as JSON (use toJson(secrets))"
+  vars_json:
+    required: true
+    description: "All vars as JSON (use toJson(vars))"
+
+outputs:
+  pve_user:
+    description: "PVE username"
+    value: ${{ steps.scope.outputs.pve_user }}
+  pve_password:
+    description: "PVE password"
+    value: ${{ steps.scope.outputs.pve_password }}
+  pve_api_url:
+    description: "PVE API URL"
+    value: ${{ steps.scope.outputs.pve_api_url }}
+  pve_default_node_ip:
+    description: "Default PVE node IP"
+    value: ${{ steps.scope.outputs.pve_default_node_ip }}
+  pve_disk_storage:
+    description: "PVE disk storage name"
+    value: ${{ steps.scope.outputs.pve_disk_storage }}
+  pve_default_node:
+    description: "Default PVE target node name"
+    value: ${{ steps.scope.outputs.pve_default_node }}
+  pve_templates_dir:
+    description: "Directory where LXC templates are stored on the node"
+    value: ${{ steps.scope.outputs.pve_templates_dir }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Lookup environment
+      id: lookup-env
+      uses: ./.gitea/actions/lookup-env
+
+    - name: Scope PVE vars/secrets
+      id: scope
+      shell: bash
+      run: |
+        SECRETS='${{ inputs.secrets_json }}'
+        VARS='${{ inputs.vars_json }}'
+
+        if [ "${{ steps.lookup-env.outputs.env }}" = "prod" ]; then
+          echo "pve_user=$(echo "$SECRETS" | jq -r '.PVE_USER')" >> "$GITHUB_OUTPUT"
+          echo "pve_password=$(echo "$SECRETS" | jq -r '.PVE_PASSWORD')" >> "$GITHUB_OUTPUT"
+          echo "pve_api_url=$(echo "$VARS" | jq -r '.PVE_API_URL')" >> "$GITHUB_OUTPUT"
+          echo "pve_default_node_ip=$(echo "$VARS" | jq -r '.PVE_DEFAULT_NODE_IP')" >> "$GITHUB_OUTPUT"
+          echo "pve_disk_storage=$(echo "$VARS" | jq -r '.PVE_DISK_STORAGE')" >> "$GITHUB_OUTPUT"
+          echo "pve_default_node=$(echo "$VARS" | jq -r '.PVE_DEFAULT_NODE')" >> "$GITHUB_OUTPUT"
+          echo "pve_templates_dir=$(echo "$VARS" | jq -r '.PVE_TEMPLATES_DIR')" >> "$GITHUB_OUTPUT"
+        else
+          echo "pve_user=$(echo "$SECRETS" | jq -r '.PVE_USER_DEV')" >> "$GITHUB_OUTPUT"
+          echo "pve_password=$(echo "$SECRETS" | jq -r '.PVE_PASSWORD_DEV')" >> "$GITHUB_OUTPUT"
+          echo "pve_api_url=$(echo "$VARS" | jq -r '.PVE_API_URL_DEV')" >> "$GITHUB_OUTPUT"
+          echo "pve_default_node_ip=$(echo "$VARS" | jq -r '.PVE_DEFAULT_NODE_IP_DEV')" >> "$GITHUB_OUTPUT"
+          echo "pve_disk_storage=$(echo "$VARS" | jq -r '.PVE_DISK_STORAGE_DEV')" >> "$GITHUB_OUTPUT"
+          echo "pve_default_node=$(echo "$VARS" | jq -r '.PVE_DEFAULT_NODE_DEV')" >> "$GITHUB_OUTPUT"
+          echo "pve_templates_dir=$(echo "$VARS" | jq -r '.PVE_TEMPLATES_DIR_DEV')" >> "$GITHUB_OUTPUT"
+        fi

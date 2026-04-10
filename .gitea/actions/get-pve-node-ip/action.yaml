@@ -1,0 +1,39 @@
+name: "Get PVE node IP"
+description: "Resolve a PVE node name to its IP address for the current environment"
+
+inputs:
+  vars_json:
+    required: true
+    description: "All vars as JSON (use toJson(vars))"
+  target_node:
+    required: true
+    description: "PVE node name"
+
+outputs:
+  ip:
+    description: "IP address of the target PVE node"
+    value: ${{ steps.lookup.outputs.ip }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Lookup environment
+      id: lookup-env
+      uses: ./.gitea/actions/lookup-env
+      
+    - id: lookup
+      shell: bash
+      run: |
+        VARS='${{ inputs.vars_json }}'
+
+        if [ "${{ steps.lookup-env.outputs.env  }}" = "prod" ]; then
+          case "${{ inputs.target_node }}" in
+            fish)     IP=$(echo "$VARS" | jq -r '.PVE_NODE_IP_FISH') ;;
+            fastfood) IP=$(echo "$VARS" | jq -r '.PVE_NODE_IP_FASTFOOD') ;;
+            mother)   IP=$(echo "$VARS" | jq -r '.PVE_NODE_IP_MOTHER') ;;
+          esac
+        else
+          IP=$(echo "$VARS" | jq -r '.PVE_DEFAULT_NODE_IP_DEV')
+        fi
+
+        echo "ip=$IP" >> "$GITHUB_OUTPUT"

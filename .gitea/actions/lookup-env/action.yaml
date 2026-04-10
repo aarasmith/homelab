@@ -1,0 +1,23 @@
+name: "lookup-env"
+description: "Determine environment (prod/dev) based on branch name"
+
+outputs:
+  env:
+    description: "Deployment environment (prod or dev)"
+    value: ${{ steps.setenv.outputs.env }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: setenv
+      shell: bash
+      run: |
+        REF_NAME=${{ github.ref_name }}
+
+        if [[ "$REF_NAME" == "main" || "$REF_NAME" == release/* ]]; then
+          ENVIRONMENT="prod"
+        else
+          ENVIRONMENT="dev"
+        fi
+
+        echo "env=$ENVIRONMENT" >> "$GITHUB_OUTPUT"

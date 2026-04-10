@@ -1,4 +1,4 @@
-name: common | post-deploy
+name: common | lxc-start
 
 on:
   workflow_call:
@@ -19,25 +19,29 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # Setup an SSH key on the CI/CD runner so it can access the PVE nodes
       - name: Setup SSH key
         uses: ./.gitea/actions/setup-ssh
         with:
           ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
 
+      # Figure out which node LXC is on so we can scope to it before running commands
       - name: Lookup LXC VMID and node
+        id: lxc
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: ${{ inputs.lxc_name }}
 
-      - name: Scope PVE vars to current environment
-        uses: ./.gitea/actions/normalize-pve-env
+      - name: Lookup ip for node
+        id: node
+        uses: ./.gitea/actions/get-pve-node-ip
         with:
-          secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
-          target_node: ${{ env.LXC_NODE }}
+          target_node: ${{ steps.lxc.outputs.node }}
 
+      # This requires that PVE vars are scoped to the correct environment AND node which hosts the LXC
       - name: Ensure LXC is running
-        run: ssh -oBatchMode=yes root@${PVE_NODE_IP} "pct start ${LXC_VMID} || true"
+        run: ssh -oBatchMode=yes root@${{ steps.node.outputs.ip }} "pct start ${{ steps.lxc.outputs.vmid }} || true"
 
       - name: Sleep to allow LXC to come online
         run: sleep 15

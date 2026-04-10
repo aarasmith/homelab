@@ -4,37 +4,60 @@ on:
     branches:
       - main
       - dev
+      - "release/**"
       - "feature/**"
     paths:
       - ".gitea/workflows/services/traefik/lxc.yaml"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Pass 'true' to force apply and post-deploy steps to run"
+        required: false
+        type: string
 
 jobs:
+  setup-env:
+    #provides `deploy_env` as an output
+    uses: ./.gitea/workflows/common/setup-env.yaml
+        
   deploy:
+    needs: setup-env
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
       target_node: "mother"
       lxc_name: traefik
       base_template: traefik-debian12.tar.gz
       vmid: "300"
-      ip: ${{ github.ref_name == 'main' && '10.1.1.10/24' || '10.1.1.110/24' }}
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.10/24' || '10.1.1.110/24' }}
       memory: "2048"
       cores: "1"
       storage_size: "16G"
       enable_docker: true
       unprivileged: true
+      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || inputs.force == 'true' }}
     secrets: inherit
   
-  post-deploy:
+  wait-for-boot:
     needs: deploy
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
-    with:
-      lxc_name: traefik
-    secrets: inherit
+    if: ${{ needs.deploy.outputs.created == 'true' || inputs.force == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    steps:
+      - name: Sleep to allow LXC to boot
+        run: sleep 15
+
+  add-backup-mount:
+      needs: wait-for-boot
+      uses: ./.gitea/workflows/common/lxc-ansible.yaml
+      with:
+        lxc_name: traefik
+        playbook: ansible/common/add-backups-mount.yaml
+        extra_vars: "env=${{ github.ref_name == 'main' && 'prod' || 'dev' }}"
+      secrets: inherit
 
   start-containers:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: traefik

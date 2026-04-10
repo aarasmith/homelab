@@ -1,0 +1,34 @@
+name: services | music | update-config
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "services/music/docker-compose.yaml"
+      - "services/music/ansible/music-setup.yaml"
+  workflow_dispatch:
+
+jobs:
+  start-lxc:
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: music
+    secrets: inherit
+
+  setup:
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: music
+      playbook: services/music/ansible/music-setup.yaml
+    secrets: inherit
+
+  restart-containers:
+    needs: setup
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: music
+      playbook: ansible/common/start-docker-containers.yaml
+    secrets: inherit

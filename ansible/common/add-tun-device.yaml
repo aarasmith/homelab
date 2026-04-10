@@ -1,0 +1,28 @@
+- name: Ensure TUN device passthrough is configured for LXC
+  hosts: pve_host
+  become: yes
+  tasks:
+    - name: Get current LXC config
+      command: pct config {{ vmid }}
+      register: pct_config
+      changed_when: false
+
+    - name: Add TUN cgroup device allow rule if missing
+      lineinfile:
+        path: /etc/pve/lxc/{{ vmid }}.conf
+        line: "lxc.cgroup2.devices.allow: c 10:200 rwm"
+        state: present
+      when: "'lxc.cgroup2.devices.allow: c 10:200 rwm' not in pct_config.stdout"
+
+    - name: Add TUN mount entry if missing
+      lineinfile:
+        path: /etc/pve/lxc/{{ vmid }}.conf
+        line: "lxc.mount.entry: /dev/net dev/net none bind,create=dir"
+        state: present
+      when: "'lxc.mount.entry: /dev/net' not in pct_config.stdout"
+
+    - name: Restart LXC to apply TUN config
+      command: pct reboot {{ vmid }}
+      when: >
+        'lxc.cgroup2.devices.allow: c 10:200 rwm' not in pct_config.stdout or
+        'lxc.mount.entry: /dev/net' not in pct_config.stdout

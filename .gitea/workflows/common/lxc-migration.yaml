@@ -40,28 +40,30 @@ jobs:
         run: ssh-keyscan -H ${{ inputs.source_host }} >> ~/.ssh/known_hosts
 
       - name: Lookup LXC VMID and node
+        id: lxc
         uses: ./.gitea/actions/lookup-lxc-vmid-node
         with:
           lxc_name: ${{ inputs.lxc_name }}
 
-      - name: Scope PVE vars to current environment
-        uses: ./.gitea/actions/normalize-pve-env
+      - name: Lookup ip for PVE node
+        id: node
+        uses: ./.gitea/actions/get-pve-node-ip
         with:
-          secrets_json: ${{ toJson(secrets) }}
           vars_json: ${{ toJson(vars) }}
-          target_node: ${{ env.LXC_NODE }}
+          target_node: ${{ steps.lxc.outputs.node }}
 
       - name: Lookup LXC IP
+        id: lxc-ip
         uses: ./.gitea/actions/lookup-lxc-ip
         with:
-          lxc_node_ip: ${PVE_NODE_IP}
-          vmid: ${LXC_VMID}
+          lxc_node_ip: ${{ steps.node.outputs.ip }}
+          vmid: ${{ steps.lxc.outputs.vmid }}
 
       - name: Render hosts.ini
         run: |
           cat > hosts.ini <<EOF
           [lxc]
-          ${{ inputs.lxc_name }} ansible_host=${LXC_IP} ansible_user=root
+          ${{ inputs.lxc_name }} ansible_host=${{ steps.lxc-ip.outputs.ip }} ansible_user=root
 
           [all:vars]
           source_host=${{ inputs.source_host }}

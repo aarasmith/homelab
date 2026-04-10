@@ -5,39 +5,70 @@ on:
     branches:
       - main
       - dev
+      - "release/**"
       - "feature/**"
     paths:
       - ".gitea/workflows/services/airflow/lxc.yaml"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Pass 'true' to force apply and post-deploy steps to run"
+        required: false
+        type: string
 
 jobs:
+  setup-env:
+    #provides `deploy_env` as an output
+    uses: ./.gitea/workflows/common/setup-env.yaml
+
   deploy:
+    needs: setup-env
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
       target_node: "fastfood"
       lxc_name: airflow
-      base_template: airflow-debian12.tar.gz
+      base_template: docker-debian12.tar.gz
       vmid: "303"
-      ip: ${{ github.ref_name == 'main' && '10.1.1.30/24' || '10.1.1.130/24' }}
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.30/24' || '10.1.1.130/24' }}
       memory: "4096"
       cores: "2"
       storage_size: "32G"
       enable_docker: true
       unprivileged: true
+      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || inputs.force == 'true' }}
     secrets: inherit
 
-  post-deploy:
+  wait-for-boot:
     needs: deploy
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
-    with:
-      lxc_name: airflow
-    secrets: inherit
-
-  start:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    if: ${{ needs.deploy.outputs.created == 'true' || inputs.force == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    steps:
+      - name: Sleep to allow LXC to boot
+        run: sleep 15
+  # Safe/idempotent
+  setup:
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: airflow
-      playbook: services/airflow/ansible/airflow-start.yaml
+      playbook: services/airflow/ansible/airflow-setup.yaml
+    secrets: inherit
+
+  add-backup-mount:
+      needs: wait-for-boot
+      uses: ./.gitea/workflows/common/lxc-ansible.yaml
+      with:
+        lxc_name: airflow
+        playbook: ansible/common/add-backups-mount.yaml
+        extra_vars: "env=${{ github.ref_name == 'main' && 'prod' || 'dev' }}"
+      secrets: inherit
+
+  start-containers:
+    needs: setup
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: airflow
+      playbook: ansible/common/start-docker-containers.yaml
     secrets: inherit

@@ -1,0 +1,118 @@
+name: common | lxc-3-node-ansible
+
+on:
+  workflow_call:
+    inputs:
+      playbook:
+        description: "Path to the ansible playbook to run"
+        required: true
+        type: string
+      service_name:
+        description: "Ansible inventory group name for the LXCs"
+        required: true
+        type: string
+    secrets: inherit
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        uses: ./.gitea/actions/setup-ssh
+        with:
+          ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
+
+      - name: Lookup VMID and node for LXC 1
+        id: lxc-1
+        uses: ./.gitea/actions/lookup-lxc-vmid-node
+        with:
+          lxc_name: ${{ inputs.service_name }}-1
+
+      - name: Lookup ip for node 1
+        id: node-1
+        uses: ./.gitea/actions/get-pve-node-ip
+        with:
+          vars_json: ${{ toJson(vars) }}
+          target_node: ${{ steps.lxc-1.outputs.node }}
+
+      - name: Lookup ip for LXC 1
+        id: lxc-ip-1
+        uses: ./.gitea/actions/lookup-lxc-ip
+        with:
+          lxc_node_ip: ${{ steps.node-1.outputs.ip }}
+          vmid: ${{ steps.lxc-1.outputs.vmid }}
+
+      - name: Lookup VMID and node for LXC 2
+        id: lxc-2
+        uses: ./.gitea/actions/lookup-lxc-vmid-node
+        with:
+          lxc_name: ${{ inputs.service_name }}-2
+
+      - name: Lookup ip for node 2
+        id: node-2
+        uses: ./.gitea/actions/get-pve-node-ip
+        with:
+          vars_json: ${{ toJson(vars) }}
+          target_node: ${{ steps.lxc-2.outputs.node }}
+
+      - name: Lookup ip for LXC 2
+        id: lxc-ip-2
+        uses: ./.gitea/actions/lookup-lxc-ip
+        with:
+          lxc_node_ip: ${{ steps.node-2.outputs.ip }}
+          vmid: ${{ steps.lxc-2.outputs.vmid }}
+
+      - name: Lookup VMID and node for LXC 3
+        id: lxc-3
+        uses: ./.gitea/actions/lookup-lxc-vmid-node
+        with:
+          lxc_name: ${{ inputs.service_name }}-3
+
+      - name: Lookup ip for node 3
+        id: node-3
+        uses: ./.gitea/actions/get-pve-node-ip
+        with:
+          vars_json: ${{ toJson(vars) }}
+          target_node: ${{ steps.lxc-3.outputs.node }}
+
+      - name: Lookup ip for LXC 3
+        id: lxc-ip-3
+        uses: ./.gitea/actions/lookup-lxc-ip
+        with:
+          lxc_node_ip: ${{ steps.node-3.outputs.ip }}
+          vmid: ${{ steps.lxc-3.outputs.vmid }}
+
+      - name: Render hosts.ini
+        run: |
+          cat > hosts.ini <<EOF
+          [${{ inputs.service_name }}]
+          ${{ inputs.service_name}}-1 ansible_host=${{ steps.lxc-ip-1.outputs.ip }} ansible_user=root
+          ${{ inputs.service_name}}-2 ansible_host=${{ steps.lxc-ip-2.outputs.ip }} ansible_user=root
+          ${{ inputs.service_name}}-3 ansible_host=${{ steps.lxc-ip-3.outputs.ip }} ansible_user=root
+
+          [${{ inputs.service_name }}:vars]
+          lxc_1_ip=${{ steps.lxc-ip-1.outputs.ip }}
+          lxc_2_ip=${{ steps.lxc-ip-2.outputs.ip }}
+          lxc_3_ip=${{ steps.lxc-ip-3.outputs.ip }}
+
+          [pve_host]
+          pve-1 ansible_host=${{ steps.node-1.outputs.ip }} ansible_user=root
+          pve-2 ansible_host=${{ steps.node-2.outputs.ip }} ansible_user=root
+          pve-3 ansible_host=${{ steps.node-3.outputs.ip }} ansible_user=root
+          EOF
+
+      - name: Debug hosts.ini
+        run: cat hosts.ini
+
+      - name: Run Ansible Playbook
+        shell: bash
+        env:
+          ANSIBLE_CONFIG: ansible/ansible.cfg
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: ansible-playbook -i hosts.ini ${{ inputs.playbook }} --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD")

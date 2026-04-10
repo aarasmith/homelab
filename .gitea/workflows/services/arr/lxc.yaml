@@ -5,46 +5,76 @@ on:
     branches:
       - main
       - dev
+      - "release/**"
       - "feature/**"
     paths:
       - ".gitea/workflows/services/arr/lxc.yaml"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Pass 'true' to force apply and post-deploy steps to run"
+        required: false
+        type: string
 
 jobs:
+  setup-env:
+    #provides `deploy_env` as an output
+    uses: ./.gitea/workflows/common/setup-env.yaml
+
   deploy:
+    needs: setup-env
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
       target_node: "mother"
       lxc_name: arr
-      base_template: arr-debian12.tar.gz
+      base_template: docker-debian12.tar.gz
       vmid: "301"
-      ip: "10.1.1.20/24"
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.20/24' || '10.1.1.120/24' }}
       memory: "2048"
       cores: "1"
       storage_size: "16G"
       enable_docker: true
       unprivileged: true
+      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || inputs.force == 'true' }}
     secrets: inherit
   
-  post-deploy:
+  wait-for-boot:
     needs: deploy
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
+    if: ${{ needs.deploy.outputs.created == 'true' || inputs.force == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    steps:
+      - name: Sleep to allow LXC to boot
+        run: sleep 15
+  # Safe/idempotent
+  setup:
+    needs: wait-for-boot
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: arr
+      playbook: services/arr/ansible/arr-setup.yaml
     secrets: inherit
-       
-  add-mount:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+
+  add-media-mount:
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: arr
       playbook: ansible/common/add-unprivileged-nfs-mount.yaml
     secrets: inherit
 
+  add-backup-mount:
+      needs: wait-for-boot
+      uses: ./.gitea/workflows/common/lxc-ansible.yaml
+      with:
+        lxc_name: arr
+        playbook: ansible/common/add-backups-mount.yaml
+        extra_vars: "env=${{ github.ref_name == 'main' && 'prod' || 'dev' }}"
+      secrets: inherit
+
   start-containers:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: [setup, add-media-mount]
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: arr

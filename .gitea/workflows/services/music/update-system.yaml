@@ -1,0 +1,19 @@
+name: services | music | update
+
+on:
+  workflow_dispatch:
+
+jobs:
+  start-lxc:
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: music
+    secrets: inherit
+
+  update:
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: music
+      playbook: ansible/common/update-docker-lxc.yaml
+    secrets: inherit

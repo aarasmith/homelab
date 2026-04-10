@@ -5,37 +5,51 @@ on:
     branches:
       - main
       - dev
+      - "release/**"
       - "feature/**"
     paths:
       - ".gitea/workflows/services/jellyfin-ombi/lxc.yaml"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Pass 'true' to force apply and post-deploy steps to run"
+        required: false
+        type: string
 
 jobs:
+  setup-env:
+    #provides `deploy_env` as an output
+    uses: ./.gitea/workflows/common/setup-env.yaml
+        
   deploy:
+    needs: setup-env
     uses: ./.gitea/workflows/common/lxc-terraform.yaml
     with:
       target_node: "mother"
       lxc_name: jellyfin-ombi
       base_template: jellyfin-ombi-debian12.tar.gz
       vmid: "302"
-      ip: "10.1.1.21/24"
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.21/24' || '10.1.1.121/24' }}
       memory: "4096"
       cores: "2"
       storage_size: "16G"
       enable_docker: false
       unprivileged: true
+      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || inputs.force == 'true' }}
     secrets: inherit
   
-  post-deploy:
+  wait-for-boot:
     needs: deploy
-    uses: ./.gitea/workflows/common/lxc-post-deploy.yaml
-    with:
-      lxc_name: jellyfin-ombi
-    secrets: inherit
+    if: ${{ needs.deploy.outputs.created == 'true' || inputs.force == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    steps:
+      - name: Sleep to allow LXC to boot
+        run: sleep 15
        
   add-media-mount:
-    if: ${{ contains(fromJSON('["main"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: jellyfin-ombi
@@ -43,17 +57,24 @@ jobs:
     secrets: inherit
 
   add-cattle-share-mount:
-    if: ${{ contains(fromJSON('["main", "dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: jellyfin-ombi
       playbook: ansible/common/add-cattle-share.yaml
     secrets: inherit
 
+  add-backup-mount:
+      needs: wait-for-boot
+      uses: ./.gitea/workflows/common/lxc-ansible.yaml
+      with:
+        lxc_name: jellyfin-ombi
+        playbook: ansible/common/add-backups-mount.yaml
+        extra_vars: "env=${{ github.ref_name == 'main' && 'prod' || 'dev' }}"
+      secrets: inherit
+
   add-igpu-passthrough:
-    if: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
-    needs: post-deploy
+    needs: wait-for-boot
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: jellyfin-ombi
