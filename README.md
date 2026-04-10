@@ -46,7 +46,6 @@ Example:
 ```
 git.arasmith.org/aarasmith/gitea-runner-tools:latest
 ```
-[aarasmith/runners/gitea-runner-tools/Dockerfile](https://github.com/aarasmith/runners/blob/main/gitea-runner-tools/Dockerfile)
 
 ### Secrets
 The following repo secrets are required:

@@ -98,6 +98,9 @@ jobs:
       - name: Terraform Apply
         run: terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan
 
+      - name: Wait for template to come online
+        run: sleep 15
+        
       - name: Lookup LXC VMID and node
         id: lxc
         uses: ./.gitea/actions/lookup-lxc-vmid-node

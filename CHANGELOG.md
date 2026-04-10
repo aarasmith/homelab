@@ -1,6 +1,12 @@
 # Changelog
 
-## [1.2.0] - 2026-04-08
+## [1.2.1] - 2026-04-10
+
+### Fixed
+- The tcp router for git ssh in traefik's external-routes was not populating due to the yaml structure changes made to `traefik/routes.yaml` to support multi-node load balancing
+- Added a 15 second sleep step to give template LXC's time to spin up before trying to obtain the IP address
+
+## [1.2.0] - 2026-04-10
 
 ### Added
 - **Kafka** — 3-broker KRaft cluster distributed across all 3 Proxmox nodes with kafka-ui on each broker behind a load-balanced Traefik route
