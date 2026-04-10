@@ -35,4 +35,4 @@ tcp:
     git-ssh-service:
       loadBalancer:
         servers:
-          - address: "{% if env == 'dev' %}{{ services.git.dev_ip }}{% else %}{{ services.git.prod_ip }}{% endif %}:22"
+          - address: "{% if env == 'dev' %}{{ services.git.servers[0].dev_ip }}{% else %}{{ services.git.servers[0].prod_ip }}{% endif %}:22"
