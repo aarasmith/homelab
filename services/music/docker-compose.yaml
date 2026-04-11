@@ -9,8 +9,7 @@ services:
       - TZ=Europe/London
     volumes:
       - /docker/appdata/lidarr/config:/config
-      - /mnt/data/music:/music
-      - /mnt/data/music/downloads:/downloads
+      - /mnt/data:/data
     ports:
       - "8686:8686"
 
@@ -22,7 +21,7 @@ services:
       - SLSKD_REMOTE_CONFIGURATION=true
     volumes:
       - /docker/appdata/slskd/config:/app
-      - /mnt/data/music/downloads:/downloads
+      - /mnt/data:/data
     ports:
       - "5030:5030"
       - "50300:50300" # Soulseek p2p - forward this on your router
@@ -39,6 +38,6 @@ services:
       - ND_MUSICFOLDER=/music
     volumes:
       - /docker/appdata/navidrome/data:/data
-      - /mnt/data/music:/music:ro
+      - /mnt/data/media/music:/music:ro
     ports:
       - "4533:4533"
