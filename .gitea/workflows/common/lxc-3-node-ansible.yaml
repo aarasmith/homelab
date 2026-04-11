@@ -1,4 +1,4 @@
-name: common | lxc-multi-ansible
+name: common | lxc-3-node-ansible
 
 on:
   workflow_call:

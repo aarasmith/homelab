@@ -1,66 +1,92 @@
 # Homelab
-This repository is for provisioning local/cloud infrastructure with terraform on Proxmox/AWS and building/deploying/managing it with ansible. Everything is orchestrated by and runs on CI/CD using the `gitea-runner-tools` container from the `runners` repo.
+This repository manages the full lifecycle of my homelab infrastructure — provisioning LXC containers on Proxmox with Terraform, configuring them with Ansible, and orchestrating/deploying everything with Gitea/Github Actions CI/CD. Everything runs inside a self-hosted runner container (gitea-runner-tools from the runners repo).
+
+- [Physical Infrastructure](#physical-infrastructure)
+- [Prerequisites](#prerequisites)
+  - [CI/CD Runner Image](#cicd-runner-image)
+  - [Repo Secrets](#secrets)
+  - [Repo Variables](#variables)
+- [Repository Structure](#repository-structure)
+- [Actions and Workflows](#actions-and-workflows)
+  - [Composite Actions](#composite-actions)
+  - [Reusable Workflows](#reusable-workflows)
+- [Usage](#usage)
+  - [Deploying a Service LXC](#deploying-a-service-lxc)
+  - [Multi-Node Services](#multi-node-services)
+  - [Building a Custom Base Template](#building-a-custom-base-template)
+  - [Running Arbitrary Playbooks](#running-arbitrary-playbooks)
+  - [Shared Ansible Playbooks](#shared-ansible-playbooks)
+  - [Destroying a Service LXC](#destroying-a-service-lxc)
+  - [Backups and Restores](#backups-and-restores)
+- [Development Workflow](#development-workflow)
+- [Reverse Proxy](#reverse-proxy)
+  - [Adding a Route](#adding-a-route)
 
 ## Physical infrastructure
 The current configuration is:
-- A production 3-node Proxmox cluster with 2 Lenovo m720q's and an HP elitedesk 800 g4 all with 8th gen i5's.
-  - The lenovo's have each have a dual 10Gbe NIC installed to handle inter-cluster traffic. This is point-to-point routed to remove the need for a 10Gbe switch.
-  - The lenovos are designed to absorb each other's load if a node goes down. ZFS replication is done every 15 minutes to allow quick failover with minimal data loss
-  - The HP has a desktop i5 rather than the low-power "T" versions in the lenovos - so it is used for workloads that require higher single core performance like databases.
-  - All 3 nodes have 64GB RAM, 6 Cores, 256GB 2.5" SSD boot drives, and 1TB NVMe's for VM/LXC storage. This allows seamless switching between nodes.
-- A Truenas core box running on an HP Microserver Gen8 serving as network storage with 4 10TB SAS drives running RAIDZ1 for 30TB usable
-  - The SAS drives connect to an HBA installed in the PCIe slot with 1 external port for future expansion to a DAS or a tape drive.
-  - 2 480GB SSD's are connected to the onboard SATA controller as mirrored vdevs for the metadata are crammed where the optical drive used to be
-  - It has 16GB ECC RAM and an 256GB SSD boot drive
-- A single lenovo m720q node as a DEV PVE node for testing
-  - i5 6 cores, 16GB RAM, 256GB SSD, and 256GB NVMe
-- A Proxmox Backup Server running on another lenovo m720q with an i3, 128GB NVMe boot drive, and 1TB SSD with power loss protection
+- A production 3-node Proxmox cluster with 2 Lenovo m720q's and an HP EliteDesk 800 G4, all with 8th gen i5's.
+  - The Lenovos each have a dual 10GbE NIC installed to handle inter-cluster traffic. This is point-to-point routed to remove the need for a 10GbE switch.
+  - The Lenovos are designed to absorb each other's load if a node goes down. ZFS replication runs every 15 minutes to allow quick failover with minimal data loss.
+  - The HP has a desktop i5 rather than the low-power "T" versions in the Lenovos, so it handles workloads that benefit from higher single-core performance like databases.
+  - All 3 nodes have 64GB RAM, 6 cores, 256GB 2.5" SSD boot drives, and 1TB NVMe's for VM/LXC storage. This allows seamless switching between nodes.
+- A TrueNAS Core box on an HP Microserver Gen8 with 4 10TB SAS drives in RAIDZ1 for ~30TB usable.
+  - The SAS drives connect to an HBA in the PCIe slot with 1 external port for future DAS or tape drive expansion.
+  - 2 480GB SSDs are connected to the onboard SATA controller as mirrored vdevs for metadata, crammed where the optical drive used to be.
+  - 16GB ECC RAM and a 256GB SSD boot drive.
+- A single Lenovo m720q as a DEV Proxmox node for testing — i5, 6 cores, 16GB RAM, 256GB SSD, 256GB NVMe.
+- A Proxmox Backup Server on another Lenovo m720q with an i3, 128GB NVMe boot drive, and 1TB power-loss-protected SSD.
 
 ![physical infrastructure](docs/images/homelab.jpg)
 
 ## Prerequisites
 ### CI/CD runner image
-You must specify in the repo vars as `RUNNER_IMAGE` a container image you have access to that has terraform, ansible, and nodejs installed. This also uses a CLI jinja2 template rendering tool, `frender`, that is preinstalled. Example:
+Set `RUNNER_IMAGE` in repo variables to an accessible container image with Terraform, Ansible, Node.js, and [frender](https://github.com/aarasmith/frender) (a CLI Jinja2 renderer) installed.
+
+Example:
 ```
-git.arasmith.org/admin/gitea-runner-tools:latest
+git.arasmith.org/aarasmith/gitea-runner-tools:latest
 ```
+
 ### Secrets
 The following repo secrets are required:
 
-```
-AWS_ACCESS_KEY_ID=<access key id to aws for provider>
-AWS_SECRET_ACCESS_KEY=<access key to aws>
-PVE_USER=<proxmox username e.g. some-username@pam>
-PVE_PASSWORD=<proxmox password for PVE_API_URL> #only required for the TF provider
-PVE_PASSWORD_DEV=<dev proxmox password>
-LXC_PASSWORD=<password for LXC's>
-MASTER_SSH_PUBLIC_KEY=<public key to place on built infra>
-MASTER_SSH_PRIVATE_KEY=<private key to access built infra>
-ANSIBLE_VAULT_PASSWORD=<password for ansible-vault encrypted files>
-```
+| Secret | Description |
+|---|---|
+| `AWS_ACCESS_KEY_ID` | Access key ID for AWS provider |
+| `AWS_SECRET_ACCESS_KEY` | Access key for AWS |
+| `PVE_USER[_DEV]` | Proxmox username e.g. `some-username@pam` |
+| `PVE_PASSWORD[_DEV]` | Proxmox password for the API provider |
+| `LXC_PASSWORD` | Default root password for LXCs |
+| `MASTER_SSH_PUBLIC_KEY` | Public key to inject into built infra |
+| `MASTER_SSH_PRIVATE_KEY` | Private key to access built infra |
+| `ANSIBLE_VAULT_PASSWORD` | Password for ansible-vault encrypted files |
+| `RESTIC_PASSWORD` | Password for restic backups of persistent service appdata |
 
 Ensure that the public key is also added to the PVE host as ansible needs to run a few commands on the host to dump template builder LXCs to a vzdump and rename the file.
+
+ PVE_USER and PVE_PASSWORD are only required for the Proxmox Terraform provider as certain operations can't be done via API (like setting feature flags such as nesting and keyctl). This is only needed for 1 node, as API actions can be applied across the cluster from any node.
+
+Individual services may use ansible vaults for service-specific secrets
 
 Dev/feature branches use the same secrets suffixed with `_DEV` where applicable (e.g. `PVE_USER_DEV`, `PVE_PASSWORD_DEV`).
 
 ### Variables
 The following repo variables are required:
 
-```
-AWS_REGION=<aws region for backend bucket/any aws infra>
-AWS_TF_BACKEND_BUCKET=<pre-existing S3 bucket name for your terraform state files>
-GATEWAY=<the network gateway ip>
-RUNNER_IMAGE=<address of image for actions runner e.g. git.arasmith.org/admin/gitea-runner-tools:latest>
-PVE_NODE_IP=<ip address of the default proxmox node (used for templates and lookups)>
-PVE_NODE_IP_<NODE-NAME>=<ip address of each proxmox node>
-PVE_NODE_IP_DEV=<ip address of the dev proxmox node>
-PVE_DISK_STORAGE=<the storage for the lxc disks>
-PVE_DEFAULT_TARGET_NODE=<default node name for builds>
-PVE_API_URL=<example: https://10.1.1.100:8006/api2/json>
-PVE_TEMPLATES_DIR=<directory where templates are saved on node e.g. /mnt/pve/local/template/cache>
-```
+| Variable | Description |
+|---|---|
+| `AWS_REGION` | AWS region for the backend bucket and any AWS infra |
+| `AWS_TF_BACKEND_BUCKET` | Pre-existing S3 bucket name for Terraform state files |
+| `GATEWAY` | Network gateway IP |
+| `RUNNER_IMAGE` | Address of the actions runner image |
+| `PVE_DEFAULT_NODE[_DEV]` | Name of the default Proxmox node (used for templates and lookups) |
+| `PVE_DEFAULT_NODE_IP[_DEV]` | IP address of the default Proxmox node |
+| `PVE_NODE_IP_<NODE-NAME>` | IP address of each Proxmox node e.g. `PVE_NODE_IP_MOTHER` |
+| `PVE_DISK_STORAGE[_DEV]` | Name of the storage for LXC disks e.g. `local-lvm` |
+| `PVE_API_URL[_DEV]` | Proxmox API endpoint e.g. `https://10.1.1.100:8006/api2/json` |
+| `PVE_TEMPLATES_DIR[_DEV]` | Directory where templates are saved on the node e.g. `/mnt/pve/local/template/cache` |
 
-> **Note:** As of v1.1.0, per-node IP variables (`PVE_NODE_IP_<NODE-NAME>`) are required for service deployments that specify a `target_node`. `PVE_NODE_IP` is still used as the default for templates and cluster-wide lookups.
+Dev/feature branches use the same secrets suffixed with `_DEV` where applicable (e.g. `PVE_DEFAULT_NODE`, `PVE_DEFAULT_NODE_IP`, `PVE_DISK_STORAGE`, `PVE_API_URL`, `PVE_TEMPLATES_DIR`)
 
 ## Repository Structure
 
@@ -68,7 +94,7 @@ PVE_TEMPLATES_DIR=<directory where templates are saved on node e.g. /mnt/pve/loc
 ├── ansible/
 │   ├── ansible.cfg
 │   └── common/               # Shared ansible playbooks used across services
-├── base-templates/           # Reusable LXC base images that services build on top of
+├── base-templates/           # Reusable LXC base images (docker, postgres17, etc.)
 ├── services/                 # Individual service configurations/data - essentially mini repos
 ├── terraform/
 │   └── modules/
@@ -85,113 +111,239 @@ Each service under `services/` follows this structure:
 ```
 services/<name>/
 ├── ansible/
+│   ├── <service>-setup.yaml  # Idempotent setup playbook
 │   ├── <playbook>.yaml       # Ansible playbooks for provisioning/updating/managing/migrating
 │   └── vault.yaml            # Ansible-vault encrypted secrets (if needed)
 ├── docker-compose.yaml       # (optional) Docker Compose config
 └── ...                       # Any other service-specific config files
 ```
 
+## Actions and Workflows
+
+### Composite Actions
+
+Reusable composite actions live in `.gitea/actions/`. The key ones are:
+
+- **`lookup-env`** — determines whether the current branch maps to `prod` (`main`, `release/**`) or `dev` (everything else). Used internally by all scoping actions.
+- **`scope-pve-env`** — exposes PVE credentials and node config as step outputs for the current environment.
+- **`scope-aws-env`** — exposes the correct S3 backend bucket as a step output.
+- **`get-pve-node-ip`** — resolves a named Proxmox node (e.g. `mother`, `fish`, `fastfood`) to its IP for the current environment.
+- **`lookup-lxc-vmid-node`** — queries the PVE cluster to find the VMID and node of a named LXC, exposed as step outputs.
+- **`lookup-lxc-ip`** — resolves an LXC's IP from its VMID via `pct exec`.
+- **`setup-ssh`** — writes the SSH private key to the runner container and scans the appropriate PVE nodes into `known_hosts`.
+
+All actions expose values as step outputs rather than writing to `GITHUB_ENV`, avoiding global state collisions in multi-lookup jobs.
+
+### Reusable Workflows
+
+Common workflows live in `.gitea/workflows/common/` and are called with `uses:` from service workflows:
+
+| Workflow | Purpose |
+|---|---|
+| `lxc-terraform.yaml` | Provisions an LXC via Terraform against an S3-backed state file |
+| `lxc-ansible.yaml` | Runs an arbitrary Ansible playbook against a named LXC |
+| `lxc-template.yaml` | Builds a base template LXC, runs a setup playbook, dumps it to a template file |
+| `lxc-start.yaml` | Ensures a named LXC is running before downstream jobs proceed |
+| `lxc-destroy.yaml` | Destroys an LXC via `terraform destroy` (manual trigger with confirmation) |
+| `lxc-migration.yaml` | Runs a migration playbook with source/destination hosts in inventory |
+| `lxc-3-node-ansible.yaml` | Runs a playbook across a 3-node service (e.g. Kafka) derived from a single `service_name` input |
+| `setup-env.yaml` | Exposes `deploy_env` (`prod`/`dev`) as a workflow-level output |
+
+---
+
 ## Usage
 
-### Base Templates
-Base templates are reusable LXC images that service templates build on top of (e.g. `docker-debian12`, `postgres17-debian12`). Their ansible playbooks live in `base-templates/<name>/` and their workflows in `.gitea/workflows/base-templates/<name>/template.yaml`.
+### Deploying a Service LXC
 
-### Adding a new service template
-1. Create a service directory at `services/<name>/`
-2. Add an ansible playbook at `services/<name>/ansible/<name>-template.yaml` with `hosts: lxc`
-3. Add a workflow at `.gitea/workflows/services/<name>/template.yaml` that calls `.gitea/workflows/common/lxc-template.yaml`:
+The minimum requirement for a new service is a workflow that calls `lxc-terraform.yaml`. No custom template is required — most services can deploy from the `docker-debian12` base template and are configured at deploy time by an idempotent Ansible setup playbook.
+
+Create `.gitea/workflows/services/<name>/lxc.yaml`:
+
+```yaml
+on:
+  push:
+    branches: [main, dev, "feature/**", "release/**"]
+    paths:
+      - ".gitea/workflows/services/<name>/lxc.yaml"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force full deploy on any branch"
+        type: boolean
+        default: false
+
+jobs:
+  setup-env:
+    uses: ./.gitea/workflows/common/setup-env.yaml
+    secrets: inherit
+
+  deploy:
+    needs: setup-env
+    uses: ./.gitea/workflows/common/lxc-terraform.yaml
+    with:
+      target_node: "node_name"
+      lxc_name: myservice
+      base_template: docker-debian12.tar.gz
+      vmid: "310"
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.X/24' || '10.1.1.Y/24' }}
+      memory: "2048"
+      cores: "1"
+      storage_size: "16G"
+      enable_docker: true
+      unprivileged: true
+      apply: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) || inputs.force == 'true' }}
+    secrets: inherit
+
+  wait-for-boot:
+    needs: deploy
+    if: ${{ needs.deploy.outputs.created == 'true' || inputs.force == 'true' }}
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: myservice
+    secrets: inherit
+
+  setup:
+    needs: wait-for-boot
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: myservice
+      playbook: services/myservice/ansible/myservice-setup.yaml
+    secrets: inherit
+
+  start:
+    needs: setup
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: myservice
+      playbook: ansible/common/start-docker-containers.yaml
+    secrets: inherit
+```
+
+The `setup-env` job is what correctly resolves prod vs dev for IP assignment across `main`, `dev`, and `release/**` branches. The `created` output from `lxc-terraform` is `true` when the terraform job created a resource. This ensures the boot-wait step which is a prerequisite for the setup jobs only runs when the LXC was freshly provisioned, not on an in-place updates - although all setup procedures are idempotent. Apply and post-deploy setup steps can be forced by passing the input variable `force=true`
+
+### Multi-Node Services
+
+For services distributed across all 3 Proxmox nodes (currently Kafka), `lxc-3-node-ansible.yaml` handles running a single playbook across all 3 LXCs simultaneously. It expects you to have created 3 LXCs named `<service_name>-1/2/3` in previous workflow steps using the `lxc-terraform` reusable workflow.It resolves each LXC's node and IP dynamically at runtime and builds a combined inventory with all 3 hosts under a single group. The PVE hosts are also included in inventory for any tasks that need to run on the node itself.
+
+The generated inventory looks like this:
+
+```ini
+[kafka]
+kafka-1 ansible_host=10.1.1.11 ansible_user=root
+kafka-2 ansible_host=10.1.1.12 ansible_user=root
+kafka-3 ansible_host=10.1.1.13 ansible_user=root
+
+[kafka:vars]
+lxc_1_ip=10.1.1.11
+lxc_2_ip=10.1.1.12
+lxc_3_ip=10.1.1.13
+```
+
+The `lxc_*_ip` vars are available to playbooks that need peer addresses injected into config — useful for things like Kafka's `CONTROLLER_QUORUM_VOTERS` where each broker needs to know the IPs of the others.
+
+Usage from a service workflow is a single job:
+
+```yaml
+configure:
+  uses: ./.gitea/workflows/common/lxc-3-node-ansible.yaml
+  with:
+    service_name: kafka
+    playbook: services/kafka/ansible/kafka-setup.yaml
+  secrets: inherit
+```
+
+### Building a Custom Base Template
+
+LXC base templates (e.g. docker-debian12 or Postgres17-debian12) can be built using the `lxc-template` reusable workflow. You can also create secondary templates from these base templates by creating a `template.yaml` workflow in your service directory. Most services don't need this, but if you have a service with a complicated or slow setup (e.g. Jellyfin baremetal with hardware transcoding configured), building it into a base template means deploys are much faster.
+
+Create `.gitea/workflows/services/<name>/template.yaml`:
 
 ```yaml
 jobs:
   create-template:
     uses: ./.gitea/workflows/common/lxc-template.yaml
     with:
-      playbook: services/<name>/ansible/<name>-template.yaml
+      playbook: services/<name>/ansible/<name>-setup.yaml
       lxc_name: <name>
       template_name: <name>-debian12
-      base_template: docker-debian12.tar.gz  # or another base template
-      enable_docker: true # whether to enable keyctl and nesting features in the lxc to allow docker
+      base_template: docker-debian12.tar.gz
+      dump_template: true
+      enable_docker: true
       unprivileged: true
+      # dump_template controls whether the template should vzdump to a template file after building
+      ## it is optional and defaults to "false"
+      dump_template: ${{ contains(fromJSON('["main","dev"]'), github.ref_name) }}
     secrets: inherit
 ```
 
-### Deploying a service LXC
-Create a workflow at `.gitea/workflows/services/<name>/lxc.yaml` that calls `.gitea/workflows/common/lxc-terraform.yaml`:
+The template workflow spins up a temporary LXC, runs your playbook against it, dumps it to a `.tar.gz` vzdump, and destroys the temporary LXC. On feature branches, `dump_template` can be left as `false` to leave the LXC running for manual inspection instead. It expects a string "true" or "false" rather than a bool
+
+### Running Arbitrary Playbooks
+
+Call `lxc-ansible.yaml` with any playbook path. This is the pattern used for post-deploy setup, NFS mounts, backups, updates, etc. A service workflow can chain as many of these as needed:
 
 ```yaml
 jobs:
-  deploy:
-    uses: ./.gitea/workflows/common/lxc-terraform.yaml
+  add-nfs-mount:
+    needs: post-deploy
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
-      target_node: <PVE node name>
-      lxc_name: <name>
-      base_template: <name>-debian12.tar.gz
-      vmid: "<vmid>"
-      ip: "10.1.1.<x>/24"
-      memory: "2048"
-      cores: "1"
-      storage_size: "16G"
-      enable_docker: true
-      unprivileged: true
+      lxc_name: myservice
+      playbook: ansible/common/add-unprivileged-nfs-mount.yaml
     secrets: inherit
 ```
+### Shared Ansible Playbooks
 
-The `target_node` value determines which physical Proxmox node the LXC is deployed on. On non-`main` branches, all deployments are automatically redirected to the dev node regardless of `target_node`.
+Several common playbooks in `ansible/common/` are reused across services:
 
-### Destroying a service LXC
-Trigger `.gitea/workflows/common/lxc-destroy.yaml` manually via `workflow_dispatch`. You will be prompted for the LXC name and must type the current branch name as confirmation to proceed.
+| Playbook | Purpose |
+|---|---|
+| `start-docker-containers.yaml` | `docker compose up -d` in `/docker` |
+| `update-docker-lxc.yaml` | apt dist-upgrade + docker image pull + container recreate + image prune |
+| `add-unprivileged-nfs-mount.yaml` | Bind-mounts `/mnt/media` into LXC at `/mnt/data` |
+| `add-cattle-share.yaml` | Bind-mounts `/mnt/cattle_share` into LXC |
+| `add-igpu-passthrough.yaml` | Configures iGPU device passthrough via `pct set` |
+| `add-tun-device.yaml` | Configures TUN device passthrough for VPN LXCs |
+| `add-backups-mount.yaml` | Mounts the NAS backups share scoped per-service and per-environment |
+| `backup-appdata.yaml` | Backs up `/docker/appdata` to the backup mount via restic (5-snapshot retention) |
+| `restore-appdata.yaml` | Wipes and restores `/docker/appdata` from latest restic snapshot |
+| `dump-lxc-to-template.yaml` | Stops the LXC, removes net config, vzdumps it, and renames the output |
 
-### Running arbitrary playbooks
-The `.gitea/workflows/common/lxc-ansible.yaml` workflow can be called to run arbitrary ansible playbooks from a service's `ansible` folder. Just provide the name of the lxc and the path to the playbook to be run. This can be called multiple times from a caller workflow to run any number of playbooks.
+### Destroying a Service LXC
 
-LXC lookup is now cluster-aware: the workflow resolves which node an LXC is running on automatically and targets that node for SSH and Ansible inventory.
+Trigger `.gitea/workflows/common/lxc-destroy.yaml` via `workflow_dispatch`. You'll be prompted for the LXC name and must type the current branch name exactly to confirm. This runs `terraform destroy` against the service's state file.
 
-### Migrating a service
-Migration playbooks live at `services/<name>/ansible/<name>-migration.yaml` and are triggered manually via `.gitea/workflows/services/<name>/migration.yaml`. Migration workflows are kept entirely separate from deployment workflows and are never triggered automatically.
+### Backups and Restores
+
+Services with `add-backups-mount` get a NAS-backed restic repo at `/mnt/backups`, scoped to `<env>/<service>`. Backup and restore workflows are manual (`workflow_dispatch` only):
+
+- `backup.yaml` — runs `backup-appdata.yaml`, keeping the last 5 snapshots
+- `restore.yaml` — runs `restore-appdata.yaml`, wiping `/docker/appdata` and restoring from `latest`
+
+`RESTIC_PASSWORD` is injected automatically by `lxc-ansible.yaml` into every Ansible run.
+
+---
 
 ## Development Workflow
-- **Feature branches** — LXC templates build and are left running on success for verification, but are not dumped to a template file. Any failure destroys the LXC. LXC deploy jobs will only run `terraform plan` with no apply stage. Dev PVE infrastructure is used.
-- **Dev branch** — Templates are dumped to a file and always destroyed afterwards. Dev PVE infrastructure is used.
-- **Main branch** — Templates are dumped to a file and always destroyed afterwards. Production PVE infrastructure is used.
 
-### Proxy
+| Branch | Behavior |
+|---|---|
+| `feature/**` | Dev PVE infrastructure. Terraform plans but does not apply. Template builds run but do not dump to file — LXC is left running on success for inspection, destroyed on failure. |
+| `dev` | Dev PVE infrastructure. Terraform applies. Templates are dumped and the LXC is always destroyed afterwards. |
+| `release/**` | Production PVE infrastructure (same as `main`). Terraform plans but does not apply — useful for staging a full prod deploy before merging. |
+| `main` | Production PVE infrastructure. Terraform applies. Templates are dumped and the LXC is always destroyed afterwards. |
 
-The `services/traefik` folder contains a customizable reverse proxy setup. It quickly stands up a traefik instance that uses a docker socket proxy for security, configures crowdsec to monitor for malicious activity - automatically registering a cloudflare bouncer and a traefik bouncer, and an authelia instance for authentication with a postgres/redis backend to allow for scaling, an SMTP setup for emailing password resets, and Duo integration for 2-factor-authentication via push notification.
+The `force` dispatch input on `lxc.yaml` workflows lets you trigger a full deploy (`terraform apply`) from any branch manually, which is handy on feature branches when you want to test an end-to-end deploy without merging to dev first.
 
-When adding new services, add them to `services/traefik/routes.yaml` and the `update-proxy-config` workflow will apply changes automatically on push to `main` or `dev`. Routes are rendered dynamically — prod and dev IPs are resolved at build time from the routes file.
+---
 
-All of the static/dynamic/middlewares configurations are in the `services/traefik/rules` folder. `external-routes.yaml` is generated dynamically from `routes.yaml` — do not edit it directly.
+## Reverse Proxy
 
-Authelia configs will be jinja rendered with the correct secrets/variables before building. Access_control rules can be added to `access_control.yaml` and encrypted with `ansible-vault` (because some of my ACL's are none of your business). They will get decrypted when building using the `ANSIBLE_VAULT_PASSWORD` repository secret.
+The `services/traefik` service runs a full reverse proxy stack: Traefik with a Docker socket proxy for security, CrowdSec for intrusion detection (with automatic Cloudflare and Traefik bouncers), Authelia for SSO with a Postgres/Redis backend, SMTP for password reset emails, and Duo push 2FA.
 
-All the other variables and secrets for traefik and supporting apps can also be stored in an ansible-vault encrypted `vault.yaml` file.
+See `services/traefik/` for full documentation. The short version for adding a new service:
 
-Required vault.yaml vars:
-```
-DOMAIN:
-CF_EMAIL:
-CF_API_KEY:
-AUTHELIA_JWT_SECRET:
-AUTHELIA_SESSION_SECRET:
-CF_BOUNCER_TOKEN:
-TZ:
-AUTHELIA_ADMIN_ID:
-AUTHELIA_ADMIN_NAME:
-AUTHELIA_ADMIN_EMAIL:
-AUTHELIA_ADMIN_PASS:
-AUTHELIA_PG_ENCRYPTION_KEY:
-AUTHELIA_PG_PASS:
-AUTHELIA_PG_USER:
-AUTHELIA_PG_DB:
-SMTP_USERNAME:
-SMTP_HOST:
-SMTP_SENDER_EMAIL:
-DUO_HOSTNAME:
-DUO_INTEGRATION_KEY:
-DUO_SECRET_KEY:
-```
-
-### Adding a route to the proxy
+### Adding a Route
 
 Add an entry to `services/traefik/routes.yaml`:
 
@@ -199,10 +351,12 @@ Add an entry to `services/traefik/routes.yaml`:
 services:
   myservice:
     subdomain: myservice
-    prod_ip: 10.1.1.X
-    dev_ip: 10.1.1.Y
+    servers:
+      - prod_ip: 10.1.1.X
+        dev_ip: 10.1.1.Y
     port: 8080
     middleware: chain-authelia@file
 ```
 
-Pushing this file or `docker-compose.yaml` to `main` or `dev` triggers the `update-proxy-config` workflow automatically.
+For load-balanced routes (e.g. multi-node services), add multiple entries under `servers`. Pushing changes to a traefik/authelia/crowdsec config file or `docker-compose.yaml` to `main` or `dev` triggers the `update-proxy-config` workflow automatically, which re-renders all the configs (including `external-routes.yaml`), pushes them to the server, and restarts the containers to apply the changes.
+

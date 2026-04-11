@@ -1,5 +1,72 @@
 # Changelog
 
+## [1.2.3] - 2026-04-11
+
+## Changed
+- Changed the music containers' docker bind mounts to use the standard trash-guides path used by all the other indexers/downloaders (arr, torrents)
+
+## [1.2.2] - 2026-04-10
+
+### Added
+- add `replication=0` to external mount point setups in `add-backup-mounts`, `add-cattle-share`, and `add-unprivileged-nfs-mount` to allow setting replication jobs across nodes
+
+## [1.2.1] - 2026-04-10
+
+### Fixed
+- The tcp router for git ssh in traefik's external-routes was not populating due to the yaml structure changes made to `traefik/routes.yaml` to support multi-node load balancing
+- Added a 15 second sleep step to give template LXC's time to spin up before trying to obtain the IP address
+
+## [1.2.0] - 2026-04-10
+
+### Added
+- **Kafka** — 3-broker KRaft cluster distributed across all 3 Proxmox nodes with kafka-ui on each broker behind a load-balanced Traefik route
+- **Torrents** — qBittorrent behind Gluetun VPN tunnel, pre-configured with TRaSH Guides-compatible paths and download categories
+- **Music** — Lidarr + slskd (Soulseek) + Navidrome stack for music acquisition and streaming
+- `lookup-env` composite action — single source of truth for prod/dev environment resolution, supports `release/**` as prod-equivalent
+- `scope-pve-env` and `scope-aws-env` actions — output-based replacements for the old normalize actions
+- `get-pve-node-ip` action — resolves a node name to its IP as a step output
+- `setup-env` reusable workflow — exposes `deploy_env` as a workflow-level output
+- `lxc-3-node-ansible` reusable workflow — derives LXC names and IPs dynamically from a single `service_name` input
+- `lxc-start` reusable workflow (renamed from `lxc-post-deploy`)
+- `update-docker-lxc.yaml` common playbook — apt dist-upgrade + docker image pull + container recreate + image prune
+- `add-backups-mount.yaml` common playbook — NAS bind mount scoped per-service and per-environment
+- `backup-appdata.yaml` / `restore-appdata.yaml` common playbooks — restic-based backup with 5-snapshot retention and clean-slate restore
+- `add-tun-device.yaml` common playbook — configures TUN device passthrough for LXCs that need VPN
+- Backup, restore, update-system, and update-config workflows added for arr, airflow, music, torrents and traefik
+- `force` dispatch input on all `lxc.yaml` workflows to trigger full deploy from any branch
+- `apply` input on `lxc-terraform` and `dump_template` input on `lxc-template` — explicit control replacing branch inference
+- `created` output from `lxc-terraform` — downstream setup jobs only run when LXC was actually just created
+- `release/**` branch support across all deploy workflows
+- Multi-server support in `routes.yaml` and `external-routes.yaml` — enables load-balanced Traefik routes
+- New Traefik routes: `kafka`, `qbit`, `lidarr`, `soulseek`, `navidrome`
+
+### Changed
+- All composite actions migrated from `GITHUB_ENV` to `GITHUB_OUTPUT` — eliminates global state mutation
+- `lxc-multi-ansible` renamed to `lxc-3-node-ansible`, simplified to single `service_name` input with dynamic IP resolution
+- Service-specific LXC templates (arr, airflow, kafka) removed — services deploy from `docker-debian12` base with idempotent setup playbooks
+- Template playbooks renamed/refactored to `*-setup.yaml`
+- Airflow postgres converted from named Docker volume to bind mount at `/docker/appdata/airflow-postgres`
+- Airflow DAGs/logs paths standardised to `/docker/appdata/airflow/dags` and `/docker/logs/airflow`
+- `traefik/update-proxy-config` branch guard removed
+- All service `lxc.yaml` workflows now resolve prod/dev IP via `setup-env` output instead of `github.ref_name == 'main'` — fixes incorrect dev IP assignment on `release/**` branches
+- Updated README
+
+### Removed
+- `normalize-pve-env` action — replaced by `scope-pve-env`
+- `normalize-aws-env` action — replaced by `scope-aws-env`
+- `lxc-post-deploy` workflow — replaced by `lxc-start`
+- All service-specific migration playbooks (arr, airflow) — superseded by restic restore flow
+- `kafka-template.yaml` — image pre-pulling removed
+
+### Repo variables renamed
+- `PVE_DEFAULT_TARGET_NODE` -> `PVE_DEFAULT_NODE`
+- `PVE_DEFAULT_TARGET_NODE_DEV` -> `PVE_DEFAULT_NODE_DEV`
+- `PVE_NODE_IP` -> `PVE_DEFAULT_NODE_IP`
+- `PVE_NODE_IP_DEV` -> `PVE_DEFAULT_NODE_IP_DEV`
+
+### New secrets required
+- `RESTIC_PASSWORD`
+
 ## [1.1.0] - 2026-03-12
 
 ### Added
@@ -27,7 +94,7 @@
 - **Traefik `frender` calls refactored** — Authelia config rendering and Traefik rules rendering are now separate named steps in both `traefik-template.yaml` and `traefik-update.yaml`. Rules rendering now passes `routes.yaml` and an `env` variable so templates can resolve environment-specific IPs.
 - **Airflow deployed on `fastfood` node** — Moved to `fastfood` to take advantage of its higher single-core performance for scheduling workloads.
 - **`lxc-post-deploy` callers updated** — `arr`, `jellyfin-ombi`, and `traefik` service workflows updated to pass `lxc_name` instead of a hardcoded `vmid`.
-- Minor step name capitalisation consistency (`debug` → `Debug`, `inject` → `Inject`) across common workflows.
+- Minor step name capitalisation consistency (`debug` -> `Debug`, `inject` -> `Inject`) across common workflows.
 
 ### Removed
 
