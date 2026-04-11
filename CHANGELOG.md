@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.2.3] - 2026-04-11
+
+## Changed
+- Changed the music containers' docker bind mounts to use the standard trash-guides path used by all the other indexers/downloaders (arr, torrents)
+
 ## [1.2.2] - 2026-04-10
 
 ### Added
