@@ -17,11 +17,11 @@ services:
 
   ombi:
     subdomain: ombi
-    port: 5000
+    port: 3579
     middleware: chain-authelia@file
     servers:
-      - prod_ip: 10.1.1.21
-        dev_ip: 10.1.1.121
+      - prod_ip: 10.1.1.24
+        dev_ip: 10.1.1.124
 
   prowlarr:
     subdomain: prowlarr

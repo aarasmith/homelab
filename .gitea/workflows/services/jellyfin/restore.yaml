@@ -1,0 +1,19 @@
+name: services | jellyfin | restore
+
+on:
+  workflow_dispatch:
+
+jobs:
+  start-lxc:
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: jellyfin
+    secrets: inherit
+
+  restore:
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: jellyfin
+      playbook: services/jellyfin/ansible/jellyfin-restore.yaml
+    secrets: inherit

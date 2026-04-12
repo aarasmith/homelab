@@ -1,0 +1,19 @@
+name: services | ombi | restore
+
+on:
+  workflow_dispatch:
+
+jobs:
+  start-lxc:
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: ombi
+    secrets: inherit
+
+  restore:
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: ombi
+      playbook: ansible/common/restore-appdata.yaml
+    secrets: inherit

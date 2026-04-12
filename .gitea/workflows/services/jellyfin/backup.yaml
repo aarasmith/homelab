@@ -1,0 +1,19 @@
+name: services | jellyfin | backup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  start-lxc:
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: jellyfin
+    secrets: inherit
+
+  backup:
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: jellyfin
+      playbook: services/jellyfin/ansible/jellyfin-backup.yaml
+    secrets: inherit

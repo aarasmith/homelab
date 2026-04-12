@@ -1,0 +1,39 @@
+---
+- name: Restore jellyfin data from NAS via restic
+  hosts: lxc
+  become: yes
+
+  tasks:
+    - name: Ensure restic is installed
+      ansible.builtin.apt:
+        name: restic
+        state: present
+        update_cache: yes
+        
+    - name: Stop jellyfin service
+      systemd:
+        name: jellyfin
+        state: stopped
+
+    - name: Clear /etc/jellyfin
+      ansible.builtin.file:
+        path: /etc/jellyfin
+        state: absent
+
+    - name: Clear /var/lib/jellyfin
+      ansible.builtin.file:
+        path: /var/lib/jellyfin
+        state: absent
+
+    - name: Restore latest snapshot from restic
+      ansible.builtin.shell: |
+        restic -r /mnt/backups restore latest --target /
+      args:
+        executable: /bin/bash
+      environment:
+        RESTIC_PASSWORD: "{{ restic_password }}"
+
+    - name: Start jellyfin service
+      systemd:
+        name: jellyfin
+        state: started
