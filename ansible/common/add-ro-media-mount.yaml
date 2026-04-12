@@ -1,0 +1,12 @@
+- name: Mount read-only media share on unprivileged LXC
+  hosts: pve_host
+  become: yes
+  tasks:
+    - name: Check if mp0 is already configured
+      command: pct config {{ vmid }}
+      register: pct_config
+      changed_when: false
+
+    - name: Add mount point
+      command: pct set {{ vmid }} -mp0 /mnt/media,mp=/mnt/data,replicate=0,ro=1
+      when: "'mp0: /mnt/media,mp=/mnt/data,replicate=0,ro=1' not in pct_config.stdout"

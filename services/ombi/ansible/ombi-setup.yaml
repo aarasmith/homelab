@@ -1,0 +1,23 @@
+---
+- name: Deploy Docker Compose stack to remote host
+  hosts: lxc
+  become: yes
+  vars:
+    remote_dir: /docker
+    service_dir: "{{ playbook_dir }}/.."
+    compose_file: docker-compose.yaml
+  
+  tasks:
+    - name: Ensure remote directory exists
+      file:
+        path: "{{ remote_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose.yaml to remote host
+      copy:
+        src: "{{ service_dir }}/{{ compose_file }}"
+        dest: "{{ remote_dir }}/{{ compose_file }}"
+        owner: root
+        group: root
+        mode: '0644'

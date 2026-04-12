@@ -2,16 +2,6 @@
 - name: Install Ombi and Jellyfin on Debian 12
   hosts: lxc
   become: true
-  vars:
-    # Ombi settings
-    ombi_repo: "deb https://apt.ombi.app/develop jessie main"
-    ombi_repo_file: "/etc/apt/sources.list.d/ombi.list"
-    ombi_gpg_key_url: "https://apt.ombi.app/pub.key"
-    ombi_package: "ombi"
-
-    # Jellyfin settings
-    jellyfin_key: "/etc/apt/keyrings/jellyfin.gpg"
-    jellyfin_package: "jellyfin"
 
   tasks:
     - name: Ensure prerequisites are installed
@@ -25,37 +15,6 @@
         state: present
         update_cache: yes
 
-# ------------------------
-# OMBI SETUP
-# ------------------------
-    - name: Add Ombi apt repository
-      copy:
-        dest: "{{ ombi_repo_file }}"
-        content: "{{ ombi_repo }}\n"
-        owner: root
-        group: root
-        mode: "0644"
-
-    - name: Add Ombi GPG key
-      apt_key:
-        url: "{{ ombi_gpg_key_url }}"
-        state: present
-
-    - name: Install Ombi
-      apt:
-        name: "{{ ombi_package }}"
-        state: present
-        update_cache: yes
-    
-    - name: Ensure Ombi service is enabled and running
-      systemd:
-        name: ombi
-        enabled: yes
-        state: started
-
-# ------------------------
-# JELLYFIN SETUP (Bookworm repo)
-# ------------------------
     - name: Ensure /etc/apt/keyrings exists
       file:
         path: /etc/apt/keyrings
@@ -73,11 +32,6 @@
       file:
         path: /etc/apt/keyrings/jellyfin.gpg
         mode: "0644"
-
-    - name: Remove legacy jellyfin.list if present
-      file:
-        path: /etc/apt/sources.list.d/jellyfin.list
-        state: absent
 
     - name: Add Jellyfin apt repository
       copy:

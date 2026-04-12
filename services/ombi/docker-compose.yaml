@@ -1,0 +1,11 @@
+services:
+  ombi:
+    image: lscr.io/linuxserver/ombi:development
+    container_name: ombi
+    volumes:
+      - /docker/appdata/ombi/config:/config
+      - /docker/logs/ombi:/config/Logs
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 3579:3579
+    restart: unless-stopped

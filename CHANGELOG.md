@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.3.0] - 2026-04-12
+
+### Added
+- New `ombi` service: standalone unprivileged LXC running Ombi in Docker, pinned to `lscr.io/linuxserver/ombi:development` for timely security updates
+- New `jellyfin` service workflows: `backup`, `restore`, `update-system`
+- New `ombi` service workflows: `lxc`, `backup`, `restore`, `update-system`
+- `ansible/common/apt-upgrade.yaml` — shared playbook for apt dist-upgrade without Docker steps; for use with bare-metal services
+- `ansible/common/add-ro-media-mount.yaml` — shared playbook to bind-mount `/mnt/media` into an LXC read-only
+
+### Changed
+- `jellyfin-ombi` service split into separate `jellyfin` and `ombi` services
+- Jellyfin LXC now deploys from `debian-12-standard` base template directly, removing dependency on the custom `jellyfin-ombi-debian12` template
+- Jellyfin media mount is now read-only
+- Ombi Traefik route updated to port `3579` and new LXC IP (`10.1.1.24` prod / `10.1.1.124` dev)
+- `jellyfin-setup.yaml` stripped of Ombi installation tasks
+
+### Removed
+- `jellyfin-ombi` combined LXC template workflow and `jellyfin-ombi-debian12` template
+- `jellyfin-ombi` migration workflows (`jellyfin-migration.yaml`, `ombi-migration.yaml`)
+- Bare-metal Ombi installation (apt repo was significantly out of date)
+
 ## [1.2.3] - 2026-04-11
 
 ## Changed
