@@ -142,7 +142,9 @@ jobs:
       - name: Terraform Apply
         id: apply
         if: ${{ inputs.apply == 'true' }}
+        shell: bash
         run: |
+          set -o pipefail
           terraform -chdir=terraform/modules/lxc apply -input=false -auto-approve tfplan | tee /tmp/tf_output.txt
           if grep -q "^Apply complete! Resources: [1-9][0-9]* added" /tmp/tf_output.txt; then
             echo "created=true" >> $GITHUB_OUTPUT

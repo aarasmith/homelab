@@ -10,3 +10,8 @@
     - name: Add device passthrough if missing
       command: pct set {{ vmid }} -dev0 /dev/dri/renderD128,gid=104
       when: "'dev0: /dev/dri/renderD128,gid=104' not in pct_config.stdout"
+      register: passthrough_result
+
+    - name: Reboot LXC to apply device passthrough
+      command: pct reboot {{ vmid }}
+      when: passthrough_result.changed

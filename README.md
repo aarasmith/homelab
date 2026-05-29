@@ -313,16 +313,15 @@ Several common playbooks in `ansible/common/` are reused across services:
 
 Trigger `.gitea/workflows/common/lxc-destroy.yaml` via `workflow_dispatch`. You'll be prompted for the LXC name and must type the current branch name exactly to confirm. This runs `terraform destroy` against the service's state file.
 
-### Backups and Restores
+### Backups, Restores, and Updates
 
-Services with `add-backups-mount` get a NAS-backed restic repo at `/mnt/backups`, scoped to `<env>/<service>`. Backup and restore workflows are manual (`workflow_dispatch` only):
+Most services support three manual operations, all triggered via the `action` input on each service's `lxc.yaml` (`workflow_dispatch` → `action: <operation>`):
 
-- `backup.yaml` — runs `backup-appdata.yaml`, keeping the last 5 snapshots
-- `restore.yaml` — runs `restore-appdata.yaml`, wiping `/docker/appdata` and restoring from `latest`
+- `update` — runs `update-docker-lxc.yaml`: apt dist-upgrade, pulls latest Docker images, recreates containers, and prunes old images. Jellyfin, which runs Jellyfin baremetal rather than in Docker, runs `apt-upgrade.yaml` instead.
+- `backup` — runs `backup-appdata.yaml`: requires `add-backups-mount` to be configured. Backs up `/docker/appdata` to a NAS-backed restic repo at `/mnt/backups`, scoped to `<env>/<service>`, keeping the last 5 snapshots.
+- `restore` — runs `restore-appdata.yaml`: wipes `/docker/appdata` and restores from the latest restic snapshot.
 
 `RESTIC_PASSWORD` is injected automatically by `lxc-ansible.yaml` into every Ansible run.
-
----
 
 ## Development Workflow
 

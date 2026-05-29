@@ -12,14 +12,24 @@ on:
       - "services/kafka/docker-compose.yaml.j2"
   workflow_dispatch:
     inputs:
+      action:
+        description: "Action to perform"
+        required: false
+        type: choice
+        default: deploy
+        options:
+          - deploy
+          - update
       force:
-        description: "Pass 'true' to force apply and post-deploy steps to run"
+        description: "Pass 'true' to force apply and post-deploy steps (deploy only)"
         required: false
         type: string
 
 jobs:
+  # ── DEPLOY PATH ──────────────────────────────────────────────────────────────
   setup-env:
     #provides `deploy_env` as an output
+    if: ${{ github.event_name == 'push' || inputs.action == 'deploy' }}
     uses: ./.gitea/workflows/common/setup-env.yaml
         
   deploy-broker-1:
@@ -90,4 +100,32 @@ jobs:
     with:
       playbook: services/kafka/ansible/kafka-setup.yaml
       service_name: kafka
+    secrets: inherit
+
+  # ── MANUAL PATHS ─────────────────────────────────────────────────────────────
+  start-lxc-1:
+    if: ${{ inputs.action == 'update' }}
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: kafka-1
+    secrets: inherit
+  start-lxc-2:
+    if: ${{ inputs.action == 'update' }}
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: kafka-2
+    secrets: inherit
+  start-lxc-3:
+    if: ${{ inputs.action == 'update' }}
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: kafka-3
+    secrets: inherit
+  
+  update:
+    needs: [start-lxc-1, start-lxc-2, start-lxc-3]
+    uses: ./.gitea/workflows/common/lxc-3-node-ansible.yaml
+    with:
+      service_name: kafka
+      playbook: ansible/common/update-docker-lxc.yaml
     secrets: inherit

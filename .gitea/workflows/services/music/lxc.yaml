@@ -11,14 +11,26 @@ on:
       - ".gitea/workflows/services/music/lxc.yaml"
   workflow_dispatch:
     inputs:
+      action:
+        description: "Action to perform"
+        required: false
+        type: choice
+        default: deploy
+        options:
+          - deploy
+          - update
+          - backup
+          - restore
       force:
-        description: "Pass 'true' to force apply and post-deploy steps to run"
+        description: "Pass 'true' to force apply and post-deploy steps (deploy only)"
         required: false
         type: string
 
 jobs:
+  # ── DEPLOY PATH ──────────────────────────────────────────────────────────────
   setup-env:
     #provides `deploy_env` as an output
+    if: ${{ github.event_name == 'push' || inputs.action == 'deploy' }}
     uses: ./.gitea/workflows/common/setup-env.yaml
         
   deploy:
@@ -79,4 +91,39 @@ jobs:
     with:
       lxc_name: music
       playbook: ansible/common/start-docker-containers.yaml
+    secrets: inherit
+
+  # ── MANUAL PATHS ─────────────────────────────────────────────────────────────
+  start-lxc:
+    if: ${{ inputs.action != 'deploy' }}
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: music
+    secrets: inherit
+
+  update:
+    if: ${{ inputs.action == 'update' }}
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: music
+      playbook: ansible/common/update-docker-lxc.yaml
+    secrets: inherit
+
+  backup:
+    if: ${{ inputs.action == 'backup' }}
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: music
+      playbook: ansible/common/backup-appdata.yaml
+    secrets: inherit
+
+  restore:
+    if: ${{ inputs.action == 'restore' }}
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: music
+      playbook: ansible/common/restore-appdata.yaml
     secrets: inherit

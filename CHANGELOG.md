@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.4.0] - 2026-05-29
+
+### Added
+- `action` choice input (`deploy`, `update`, `backup`, `restore`) on all service `lxc.yaml` workflows, consolidating manual operations into a single workflow file per service
+
+### Changed
+- All service `lxc.yaml` workflows now handle update, backup, and restore operations via the `action` input; the deploy path is skipped when a non-deploy action is selected
+- `lxc-terraform.yaml`: apply step now uses `shell: bash` with `set -o pipefail` to correctly surface Terraform failures through the `tee` pipe
+- `add-igpu-passthrough.yaml`: LXC is now rebooted when the iGPU passthrough rule is newly applied
+- Jellyfin `lxc.yaml`: `add-igpu-passthrough` now depends on `setup` rather than `wait-for-boot`, ensuring the reboot happens after setup completes
+- Airflow Postgres image changed from `postgres:16` to `postgres:16-alpine`
+- README: Backups, Restores, and Updates section updated to reflect consolidated `action` input pattern
+- Kafka `lxc.yaml`: `update` action supported via the `action` input (no backup/restore, as Kafka has no appdata)
+
+### Removed
+- Standalone `backup.yaml`, `restore.yaml`, and `update-system.yaml` workflow files for all services (airflow, arr, jellyfin, kafka, music, ombi, torrents, traefik) — superseded by the `action` input on each service's `lxc.yaml`
+
 ## [1.3.0] - 2026-04-12
 
 ### Added

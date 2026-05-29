@@ -11,14 +11,25 @@ on:
       - ".gitea/workflows/services/jellyfin/lxc.yaml"
   workflow_dispatch:
     inputs:
+      action:
+        description: "Action to perform"
+        required: false
+        type: choice
+        default: deploy
+        options:
+          - deploy
+          - update
+          - backup
+          - restore
       force:
-        description: "Pass 'true' to force apply and post-deploy steps to run"
+        description: "Pass 'true' to force apply and post-deploy steps (deploy only)"
         required: false
         type: string
-
 jobs:
+  # ── DEPLOY PATH ──────────────────────────────────────────────────────────────
   setup-env:
     #provides `deploy_env` as an output
+    if: ${{ github.event_name == 'push' || inputs.action == 'deploy' }}
     uses: ./.gitea/workflows/common/setup-env.yaml
         
   deploy:
@@ -74,10 +85,46 @@ jobs:
         extra_vars: "env=${{ github.ref_name == 'main' && 'prod' || 'dev' }}"
       secrets: inherit
 
+  #Requires reboot on first time
   add-igpu-passthrough:
-    needs: wait-for-boot
+    needs: setup
     uses: ./.gitea/workflows/common/lxc-ansible.yaml
     with:
       lxc_name: jellyfin
       playbook: ansible/common/add-igpu-passthrough.yaml
+    secrets: inherit
+
+  # ── MANUAL PATHS ─────────────────────────────────────────────────────────────
+  start-lxc:
+    if: ${{ inputs.action != 'deploy' }}
+    uses: ./.gitea/workflows/common/lxc-start.yaml
+    with:
+      lxc_name: jellyfin
+    secrets: inherit
+
+  update:
+    if: ${{ inputs.action == 'update' }}
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: jellyfin
+      playbook: ansible/common/apt-upgrade.yaml
+    secrets: inherit
+
+  backup:
+    if: ${{ inputs.action == 'backup' }}
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: jellyfin
+      playbook: services/jellyfin/ansible/jellyfin-backup.yaml
+    secrets: inherit
+
+  restore:
+    if: ${{ inputs.action == 'restore' }}
+    needs: start-lxc
+    uses: ./.gitea/workflows/common/lxc-ansible.yaml
+    with:
+      lxc_name: jellyfin
+      playbook: services/jellyfin/ansible/jellyfin-restore.yaml
     secrets: inherit
