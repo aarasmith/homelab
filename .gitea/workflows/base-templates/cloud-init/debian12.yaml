@@ -1,0 +1,17 @@
+name: base-templates | cloud-init | debian12
+
+on:
+  push:
+    branches: [main, dev, "feature/**"]
+    paths:
+      - ".gitea/workflows/base-templates/cloud-init/debian12.yaml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.gitea/workflows/common/vm-cloudinit-template.yaml
+    with:
+      vmid: "9001"
+      vm_name: debian12-cloudinit
+      image_url: https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2
+    secrets: inherit

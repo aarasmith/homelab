@@ -1,0 +1,66 @@
+name: common | pve-ansible
+
+on:
+  workflow_call:
+    inputs:
+      playbook:
+        description: "Repo-relative path to the Ansible playbook to run"
+        required: true
+        type: string
+      pve_node:
+        description: "PVE node to target"
+        required: false
+        type: string
+        default: ""
+      extra_vars:
+        description: "Optional extra vars to pass to ansible-playbook (space-separated key=value pairs)"
+        required: false
+        type: string
+        default: ""
+    secrets: inherit
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Scope PVE vars to current environment
+        id: scope-pve
+        uses: ./.gitea/actions/scope-pve-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+
+      - name: Setup SSH key
+        uses: ./.gitea/actions/setup-ssh
+        with:
+          ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
+
+      - name: Render hosts.ini
+        run: |
+          cat > hosts.ini <<EOF
+          [pve_host]
+          pve ansible_host=${{ steps.scope-pve.outputs.pve_default_node_ip }} ansible_user=root
+
+          EOF
+
+      - name: Debug hosts.ini
+        run: cat hosts.ini
+
+      - name: Run Ansible Playbook
+        shell: bash
+        env:
+          ANSIBLE_CONFIG: ansible/ansible.cfg
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+          RESTIC_PASSWORD: "${{ secrets.RESTIC_PASSWORD }}"
+        run: |
+          EXTRA_VARS="${{ inputs.extra_vars }}"
+          ansible-playbook -i hosts.ini ${{ inputs.playbook }} \
+            --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD") \
+            --extra-vars "restic_password='$RESTIC_PASSWORD'" \
+            ${EXTRA_VARS:+--extra-vars "$EXTRA_VARS"}

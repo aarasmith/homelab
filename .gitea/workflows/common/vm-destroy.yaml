@@ -1,0 +1,92 @@
+name: common | vm-destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      vm_name:
+        description: "Name of the VM to destroy"
+        required: true
+        type: string
+      confirm:
+        description: "Type the current branch name to confirm"
+        required: true
+        type: string
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Validate confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "${{ github.ref_name }}" ]; then
+            echo "Confirmation failed. You must type '${{ github.ref_name }}' exactly to proceed."
+            exit 1
+          fi
+
+      - name: Scope AWS vars to current environment
+        id: scope-aws
+        uses: ./.gitea/actions/scope-aws-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+
+      - name: Setup SSH key
+        uses: ./.gitea/actions/setup-ssh
+        with:
+          ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
+
+      - name: Scope PVE vars to current environment
+        id: scope-pve
+        uses: ./.gitea/actions/scope-pve-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+
+      - name: Create pve-provider.auto.tfvars
+        run: |
+          cat > terraform/modules/vm/pve-provider.auto.tfvars <<EOF
+          pm_user     = "${{ steps.scope-pve.outputs.pve_user }}"
+          pm_password = "${{ steps.scope-pve.outputs.pve_password }}"
+          pm_api_url  = "${{ steps.scope-pve.outputs.pve_api_url }}"
+          EOF
+
+      - name: Create dummy vars to satisfy variable validation
+        run: |
+          cat > terraform/modules/vm/vars.auto.tfvars <<EOF
+          vm_name        = "destroy"
+          target_node    = "destroy"
+          template_name  = "destroy"
+          storage        = "destroy"
+          ip_address     = "0.0.0.0/24"
+          gateway        = "0.0.0.0"
+          ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE/Pjg7YXZ8Yau9heCc4YWxFlzhThnI+IhUx2hLJRxYE destroy"
+          ci_password    = "destroy"
+          EOF
+
+      - name: Generate backend.tf
+        run: |
+          cat > terraform/modules/vm/backend.tf <<EOF
+          terraform {
+            backend "s3" {
+              bucket = "${{ steps.scope-aws.outputs.aws_tf_backend_bucket }}"
+              region = "${{ vars.AWS_REGION }}"
+              key    = "${{ inputs.vm_name }}.tfstate"
+            }
+          }
+          EOF
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform/modules/vm init -input=false
+
+      - name: Terraform Destroy
+        run: terraform -chdir=terraform/modules/vm destroy -auto-approve -input=false

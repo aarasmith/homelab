@@ -1,0 +1,16 @@
+---
+- name: Deploy cloud-init snippet
+  hosts: pve_host
+  become: yes
+  tasks:
+    - name: Ensure snippets directory exists
+      ansible.builtin.file:
+        path: "{{ snippets_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy cloud-init snippet
+      ansible.builtin.copy:
+        src: "{{ snippet_src }}"
+        dest: "{{ snippets_dir }}/{{ snippet_name }}.yml"
+        mode: "0644"

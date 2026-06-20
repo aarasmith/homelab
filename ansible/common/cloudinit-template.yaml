@@ -1,0 +1,50 @@
+---
+- name: Build cloud-init VM template
+  hosts: pve_host
+  become: yes
+  vars:
+    bridge: vmbr0
+    image_file: "/var/lib/vz/template/qemu/{{ image_url | basename }}"
+
+  tasks:
+    - name: Ensure template image directory exists
+      ansible.builtin.file:
+        path: "{{ image_file | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Download cloud-init image
+      ansible.builtin.get_url:
+        url: "{{ image_url }}"
+        dest: "{{ image_file }}"
+        mode: "0644"
+
+    - name: Destroy existing template VM if present
+      ansible.builtin.command: qm destroy {{ vmid }} --purge
+      ignore_errors: yes
+
+    - name: Create empty VM shell
+      ansible.builtin.command: >
+        qm create {{ vmid }}
+        --name {{ vm_name }}
+        --net0 virtio,bridge={{ bridge }}
+        --scsihw virtio-scsi-single
+        --ostype l26
+        --serial0 socket
+        --vga serial0
+        --agent enabled=1
+
+    - name: Import cloud image into scsi0
+      ansible.builtin.command: >
+        qm set {{ vmid }} --scsi0 {{ template_storage }}:0,import-from={{ image_file }}
+
+    - name: Attach cloud-init drive
+      ansible.builtin.command: >
+        qm set {{ vmid }} --ide2 {{ template_storage }}:cloudinit
+
+    - name: Set boot order
+      ansible.builtin.command: >
+        qm set {{ vmid }} --boot order=scsi0
+
+    - name: Convert VM to template
+      ansible.builtin.command: qm template {{ vmid }}

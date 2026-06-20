@@ -1,0 +1,91 @@
+name: common | vm-cloudinit-template
+
+on:
+  workflow_call:
+    inputs:
+      vmid:
+        description: "VMID for the template VM"
+        required: true
+        type: string
+      vm_name:
+        description: "Name of the template"
+        required: true
+        type: string
+      image_url:
+        description: "URL of the cloud-init image to download and import"
+        required: true
+        type: string
+      bridge:
+        description: "Network bridge for the template's NIC"
+        required: false
+        type: string
+        default: "vmbr0"
+      node:
+        description: "PVE node name to build on (defaults to the environment's default node)"
+        required: false
+        type: string
+        default: ""
+    secrets: inherit
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Lookup environment
+        id: lookup-env
+        uses: ./.gitea/actions/lookup-env
+
+      - name: Scope PVE vars to current environment
+        id: scope-pve
+        uses: ./.gitea/actions/scope-pve-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+
+      - name: Setup SSH key
+        uses: ./.gitea/actions/setup-ssh
+        with:
+          ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
+
+      - name: Resolve bootstrap-tier storage
+        id: storage
+        run: |
+          if [ "${{ steps.lookup-env.outputs.env }}" = "prod" ]; then
+            echo "template_storage=truenas" >> "$GITHUB_OUTPUT"
+          else
+            echo "template_storage=dev-storage" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve override node IP
+        id: node
+        if: ${{ inputs.node != '' }}
+        uses: ./.gitea/actions/get-pve-node-ip
+        with:
+          vars_json: ${{ toJson(vars) }}
+          target_node: ${{ inputs.node }}
+
+      - name: Render hosts.ini
+        run: |
+          cat > hosts.ini <<EOF
+          [pve_host]
+          pve ansible_host=${{ inputs.node != '' && steps.node.outputs.ip || steps.scope-pve.outputs.pve_default_node_ip }} ansible_user=root
+          EOF
+
+      - name: Debug hosts.ini
+        run: cat hosts.ini
+
+      - name: Run Ansible Playbook
+        shell: bash
+        env:
+          ANSIBLE_CONFIG: ansible/ansible.cfg
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          ansible-playbook -i hosts.ini ansible/common/cloudinit-template.yaml \
+            --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD") \
+            --extra-vars "vmid=${{ inputs.vmid }} vm_name=${{ inputs.vm_name }} image_url=${{ inputs.image_url }} bridge=${{ inputs.bridge }} template_storage=${{ steps.storage.outputs.template_storage }}"

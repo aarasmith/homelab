@@ -1,0 +1,232 @@
+name: common | vm-terraform
+
+on:
+  workflow_call:
+    inputs:
+      target_node:
+        required: true
+        type: string
+      vm_name:
+        required: true
+        type: string
+      vmid:
+        required: true
+        type: string
+      template_name:
+        description: "Name of the cloud-init template to clone e.g. debian12-cloudinit"
+        required: true
+        type: string
+      ip:
+        description: "Static IP in CIDR form e.g. 10.1.1.62/24"
+        required: true
+        type: string
+      memory:
+        required: true
+        type: string
+      cores:
+        required: true
+        type: string
+      disk_size:
+        required: true
+        type: string
+      bridge:
+        required: false
+        type: string
+        default: "vmbr0"
+      full_clone:
+        required: false
+        type: string
+        default: "true"
+      ci_user:
+        required: false
+        type: string
+        default: "debian"
+      ci_snippet:
+        description: "Cloud-init #cloud-config snippet to attach to this VM at clone time"
+        required: false
+        type: string
+        default: |
+          #cloud-config
+          runcmd:
+            - apt update
+            - apt install -y qemu-guest-agent
+            - systemctl start qemu-guest-agent
+      agent:
+        required: false
+        type: string
+        default: "1"
+      apply:
+        description: "Whether to run terraform apply (set false for plan-only)"
+        required: false
+        type: string
+        default: "false"
+    outputs:
+      created:
+        description: "Whether the VM was just created"
+        value: ${{ jobs.deploy.outputs.created }}
+    secrets: inherit
+
+jobs:
+  # Snippets only matter at clone time (cicustom), so push the snippet for
+  # this VM here, before terraform runs. truenas is NFS-mounted identically
+  # on all 3 prod nodes (and dev only has one node), so pushing via the
+  # default node's mount reaches wherever the VM actually gets created.
+  push-snippet:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Lookup environment
+        id: lookup-env
+        uses: ./.gitea/actions/lookup-env
+
+      - name: Scope PVE vars to current environment
+        id: scope-pve
+        uses: ./.gitea/actions/scope-pve-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+
+      - name: Setup SSH key
+        uses: ./.gitea/actions/setup-ssh
+        with:
+          ssh_private_key: ${{ secrets.MASTER_SSH_PRIVATE_KEY }}
+
+      - name: Resolve bootstrap-tier snippets storage
+        id: storage
+        run: |
+          if [ "${{ steps.lookup-env.outputs.env }}" = "prod" ]; then
+            echo "snippets_dir=/mnt/pve/truenas/snippets" >> "$GITHUB_OUTPUT"
+          else
+            echo "snippets_dir=/var/lib/vz/snippets" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write cloud-init snippet to a local file
+        run: |
+          cat > /tmp/ci-snippet.yml <<'CLOUDINIT_SNIPPET_EOF'
+          ${{ inputs.ci_snippet }}
+          CLOUDINIT_SNIPPET_EOF
+
+      - name: Debug snippet
+        run: cat /tmp/ci-snippet.yml
+
+      - name: Render hosts.ini
+        run: |
+          cat > hosts.ini <<EOF
+          [pve_host]
+          pve ansible_host=${{ steps.scope-pve.outputs.pve_default_node_ip }} ansible_user=root
+          EOF
+
+      - name: Run Ansible Playbook
+        shell: bash
+        env:
+          ANSIBLE_CONFIG: ansible/ansible.cfg
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          ansible-playbook -i hosts.ini ansible/common/deploy-cloudinit-snippet.yaml \
+            --vault-password-file <(echo "$ANSIBLE_VAULT_PASSWORD") \
+            --extra-vars "snippets_dir=${{ steps.storage.outputs.snippets_dir }} snippet_src=/tmp/ci-snippet.yml snippet_name=${{ inputs.vm_name }}"
+
+  deploy:
+    needs: push-snippet
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ vars.RUNNER_IMAGE }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+    outputs:
+      created: ${{ steps.apply.outputs.created }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Scope AWS vars to current environment
+        id: scope-aws
+        uses: ./.gitea/actions/scope-aws-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+
+      - name: Scope PVE vars to current environment
+        id: scope-pve
+        uses: ./.gitea/actions/scope-pve-env
+        with:
+          secrets_json: ${{ toJson(secrets) }}
+          vars_json: ${{ toJson(vars) }}
+
+      - name: Create pve-provider.auto.tfvars
+        run: |
+          cat > terraform/modules/vm/pve-provider.auto.tfvars <<EOF
+          pm_user     = "${{ steps.scope-pve.outputs.pve_user }}"
+          pm_password = "${{ steps.scope-pve.outputs.pve_password }}"
+          pm_api_url  = "${{ steps.scope-pve.outputs.pve_api_url }}"
+          EOF
+
+      - name: Lookup environment
+        id: lookup-env
+        uses: ./.gitea/actions/lookup-env
+
+      - name: Create vars.auto.tfvars
+        run: |
+          cat > terraform/modules/vm/vars.auto.tfvars <<EOF
+          vmid              = "${{ inputs.vmid }}"
+          vm_name           = "${{ inputs.vm_name }}"
+          target_node       = "${{ steps.lookup-env.outputs.env == 'prod' && inputs.target_node || vars.PVE_DEFAULT_NODE_DEV }}"
+          template_name     = "${{ inputs.template_name }}"
+          full_clone        = ${{ inputs.full_clone }}
+          cores             = ${{ inputs.cores }}
+          memory            = ${{ inputs.memory }}
+          storage           = "${{ steps.scope-pve.outputs.pve_disk_storage }}"
+          cloudinit_storage = "${{ steps.lookup-env.outputs.env == 'prod' && 'truenas' || 'dev-storage' }}"
+          disk_size         = "${{ inputs.disk_size }}"
+          bridge            = "${{ inputs.bridge }}"
+          ip_address        = "${{ inputs.ip }}"
+          gateway           = "${{ vars.GATEWAY }}"
+          ssh_public_key    = "${{ secrets.MASTER_SSH_PUBLIC_KEY }}"
+          ci_user           = "${{ inputs.ci_user }}"
+          ci_password       = "${{ secrets.LXC_PASSWORD }}"
+          cicustom          = "vendor=${{ steps.lookup-env.outputs.env == 'prod' && 'truenas' || 'local' }}:snippets/${{ inputs.vm_name }}.yml"
+          agent             = ${{ inputs.agent }}
+          EOF
+
+      - name: Generate backend.tf
+        run: |
+          cat > terraform/modules/vm/backend.tf <<EOF
+          terraform {
+            backend "s3" {
+              bucket = "${{ steps.scope-aws.outputs.aws_tf_backend_bucket }}"
+              region = "${{ vars.AWS_REGION }}"
+              key    = "${{ inputs.vm_name }}.tfstate"
+            }
+          }
+          EOF
+
+      - name: Debug backend.tf
+        run: cat terraform/modules/vm/backend.tf
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform/modules/vm init -input=false
+
+      - name: Terraform Refresh
+        run: terraform -chdir=terraform/modules/vm refresh -input=false
+
+      - name: Terraform Plan
+        run: terraform -chdir=terraform/modules/vm plan -out=tfplan -input=false
+
+      - name: Terraform Apply
+        id: apply
+        if: ${{ inputs.apply == 'true' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          terraform -chdir=terraform/modules/vm apply -input=false -auto-approve tfplan | tee /tmp/tf_output.txt
+          if grep -q "^Apply complete! Resources: [1-9][0-9]* added" /tmp/tf_output.txt; then
+            echo "created=true" >> $GITHUB_OUTPUT
+          fi

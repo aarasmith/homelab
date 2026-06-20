@@ -1,0 +1,94 @@
+name: services | vm | vm
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - "release/**"
+      - "feature/**"
+    paths:
+      - ".gitea/workflows/services/kubernetes/vm.yaml"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform"
+        required: false
+        type: choice
+        default: deploy
+        options:
+          - deploy
+          - update
+          - backup
+          - restore
+      force:
+        description: "Pass 'true' to force apply and post-deploy steps (deploy only)"
+        required: false
+        type: string
+jobs:
+  # ── DEPLOY PATH ──────────────────────────────────────────────────────────────
+  setup-env:
+    #provides `deploy_env` as an output
+    if: ${{ github.event_name == 'push' || inputs.action == 'deploy' }}
+    uses: ./.gitea/workflows/common/setup-env.yaml
+        
+  deploy-jumpbox:
+    needs: setup-env
+    uses: ./.gitea/workflows/common/vm-terraform.yaml
+    with:
+      target_node: fastfood
+      vm_name: jumpbox
+      vmid: "201"
+      template_name: debian12-cloudinit
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.66/24' || '10.1.1.166/24' }}
+      memory: "512"
+      cores: "1"
+      disk_size: "10G"
+      apply: ${{ contains(fromJSON('["main"]'), github.ref_name) || inputs.force == 'true' }}
+    secrets: inherit
+        
+  deploy-kube-server:
+    needs: setup-env
+    uses: ./.gitea/workflows/common/vm-terraform.yaml
+    with:
+      target_node: fastfood
+      vm_name: kube-server
+      vmid: "202"
+      template_name: debian12-cloudinit
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.67/24' || '10.1.1.167/24' }}
+      memory: "2048"
+      cores: "1"
+      disk_size: "20G"
+      apply: ${{ contains(fromJSON('["main"]'), github.ref_name) || inputs.force == 'true' }}
+    secrets: inherit
+        
+  deploy-node-0:
+    needs: setup-env
+    uses: ./.gitea/workflows/common/vm-terraform.yaml
+    with:
+      target_node: fish
+      vm_name: node-0
+      vmid: "203"
+      template_name: debian12-cloudinit
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.68/24' || '10.1.1.168/24' }}
+      memory: "2048"
+      cores: "1"
+      disk_size: "20G"
+      apply: ${{ contains(fromJSON('["main"]'), github.ref_name) || inputs.force == 'true' }}
+    secrets: inherit
+        
+  deploy-node-1:
+    needs: setup-env
+    uses: ./.gitea/workflows/common/vm-terraform.yaml
+    with:
+      target_node: mother
+      vm_name: node-1
+      vmid: "204"
+      template_name: debian12-cloudinit
+      ip: ${{ needs.setup-env.outputs.deploy_env == 'prod' && '10.1.1.69/24' || '10.1.1.169/24' }}
+      memory: "2048"
+      cores: "1"
+      disk_size: "20G"
+      apply: ${{ contains(fromJSON('["main"]'), github.ref_name) || inputs.force == 'true' }}
+    secrets: inherit
+  
